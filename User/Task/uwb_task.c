@@ -98,7 +98,7 @@ static void uwb_task(void *argument) {
             printf("RX error\r\n");
         }
 
-        HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
         osDelay(100);
     }
 }

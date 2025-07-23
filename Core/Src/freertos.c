@@ -24,6 +24,7 @@
 #include "main.h"
 #include "task.h"
 
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
@@ -63,13 +64,13 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
+extern int main_app(void);
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
-
-extern void main_app(void);
 
 /**
  * @brief  FreeRTOS initialization
@@ -133,7 +134,7 @@ void StartDefaultTask(void *argument) {
 /* USER CODE BEGIN Application */
 
 int __io_putchar(int ch) {
-    HAL_UART_Transmit(&huart4, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart8, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
     return ch;
 }
 
