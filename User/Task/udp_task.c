@@ -1,34 +1,35 @@
-#include "lwip/sockets.h"
-#include "lwip/netdb.h"
-#include "lwip/inet.h"
-#include "cmsis_os.h"
-#include "main.h"
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
-#define UDP_SERVER_PORT     8000
-#define UDP_BUFFER_SIZE     512
-#define TX_QUEUE_SIZE       10
-#define RX_QUEUE_SIZE       10
+#include "cmsis_os.h"
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
+#include "main.h"
+
+#define UDP_SERVER_PORT 8000
+#define UDP_BUFFER_SIZE 512
+#define TX_QUEUE_SIZE   10
+#define RX_QUEUE_SIZE   10
 
 // 消息类型定义
 typedef enum {
-    MSG_TYPE_SEND_DATA = 1,     // 应用任务发送数据
-    MSG_TYPE_CLOSE_CONN,        // 关闭连接
-    MSG_TYPE_CONFIG             // 配置信息
+    MSG_TYPE_SEND_DATA = 1,    // 应用任务发送数据
+    MSG_TYPE_CLOSE_CONN,       // 关闭连接
+    MSG_TYPE_CONFIG            // 配置信息
 } msg_type_t;
 
 // 发送消息结构体
 typedef struct {
     msg_type_t type;
-    struct sockaddr_in dest_addr;  // 目标地址
+    struct sockaddr_in dest_addr;    // 目标地址
     uint16_t data_len;
     uint8_t data[UDP_BUFFER_SIZE];
 } tx_msg_t;
 
 // 接收消息结构体
 typedef struct {
-    struct sockaddr_in src_addr;   // 源地址
+    struct sockaddr_in src_addr;    // 源地址
     uint16_t data_len;
     uint8_t data[UDP_BUFFER_SIZE];
 } rx_msg_t;
@@ -43,8 +44,7 @@ typedef void (*udp_rx_callback_t)(const rx_msg_t *msg);
 static udp_rx_callback_t rx_callback = NULL;
 
 // UDP通信任务
-void udp_comm_task(void *argument)
-{
+void udp_comm_task(void *argument) {
     int sockfd;
     struct sockaddr_in server_addr, client_addr;
     char buffer[UDP_BUFFER_SIZE];
@@ -65,7 +65,8 @@ void udp_comm_task(void *argument)
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // 绑定 socket
-    if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
+        0) {
         closesocket(sockfd);
         osThreadExit();
     }
@@ -77,15 +78,16 @@ void udp_comm_task(void *argument)
                 case MSG_TYPE_SEND_DATA:
                     // 发送数据到指定地址
                     sendto(sockfd, tx_msg.data, tx_msg.data_len, 0,
-                           (struct sockaddr *)&tx_msg.dest_addr, sizeof(tx_msg.dest_addr));
+                           (struct sockaddr *)&tx_msg.dest_addr,
+                           sizeof(tx_msg.dest_addr));
                     break;
-                
+
                 case MSG_TYPE_CLOSE_CONN:
                     break;
-                
+
                 case MSG_TYPE_CONFIG:
                     break;
-                
+
                 default:
                     break;
             }
@@ -111,7 +113,7 @@ void udp_comm_task(void *argument)
             }
         }
 
-        osDelay(10); // 防止任务占满 CPU
+        osDelay(10);    // 防止任务占满 CPU
     }
 }
 
@@ -138,7 +140,8 @@ void UDP_Task_Init(void) {
 }
 
 // API函数：发送UDP数据
-int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr, uint16_t port) {
+int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr,
+                 uint16_t port) {
     if (data == NULL || len == 0 || len > UDP_BUFFER_SIZE || ip_addr == NULL) {
         return -1;
     }
@@ -146,7 +149,7 @@ int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr, uint16_
     tx_msg_t msg;
     msg.type = MSG_TYPE_SEND_DATA;
     msg.data_len = len;
-    
+
     // 手动复制数据
     for (int i = 0; i < len; i++) {
         msg.data[i] = data[i];
@@ -156,15 +159,15 @@ int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr, uint16_
     msg.dest_addr.sin_family = AF_INET;
     msg.dest_addr.sin_port = htons(port);
     if (inet_aton(ip_addr, &msg.dest_addr.sin_addr) == 0) {
-        return -2; // 无效的IP地址
+        return -2;    // 无效的IP地址
     }
 
     // 发送到队列
     if (osMessageQueuePut(txQueue, &msg, 0, 100) != osOK) {
-        return -3; // 队列满或超时
+        return -3;    // 队列满或超时
     }
 
-    return 0; // 成功
+    return 0;    // 成功
 }
 
 // API函数：接收UDP数据（非阻塞）
@@ -174,25 +177,19 @@ int UDP_ReceiveData(rx_msg_t *msg, uint32_t timeout_ms) {
     }
 
     if (osMessageQueueGet(rxQueue, msg, NULL, timeout_ms) == osOK) {
-        return 0; // 成功
+        return 0;    // 成功
     }
 
-    return -1; // 超时或错误
+    return -1;    // 超时或错误
 }
 
 // API函数：设置接收回调函数
-void UDP_SetRxCallback(udp_rx_callback_t callback) {
-    rx_callback = callback;
-}
+void UDP_SetRxCallback(udp_rx_callback_t callback) { rx_callback = callback; }
 
 // API函数：获取队列状态
-int UDP_GetTxQueueCount(void) {
-    return (int)osMessageQueueGetCount(txQueue);
-}
+int UDP_GetTxQueueCount(void) { return (int)osMessageQueueGetCount(txQueue); }
 
-int UDP_GetRxQueueCount(void) {
-    return (int)osMessageQueueGetCount(rxQueue);
-}
+int UDP_GetRxQueueCount(void) { return (int)osMessageQueueGetCount(rxQueue); }
 
 // API函数：清空队列
 void UDP_ClearTxQueue(void) {

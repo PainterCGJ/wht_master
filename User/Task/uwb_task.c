@@ -1,16 +1,19 @@
 #include "cmsis_os.h"
 #include "deca_device_api.h"
 #include "deca_regs.h"
+#include "elog.h"
 #include "port.h"
 
+
 // Forward declaration for UDP communication
-extern int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr, uint16_t port);
+extern int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr,
+                        uint16_t port);
 
 #define FRAME_LEN_MAX 127
 
 /* Default communication configuration. We use here EVK1000's default mode (mode
  * 3). */
- static dwt_config_t config = {
+static dwt_config_t config = {
     5,               /* Channel number. */
     DWT_PRF_64M,     /* Pulse repetition frequency. */
     DWT_PLEN_128,    /* Preamble length. Used in TX only. */
@@ -37,18 +40,23 @@ static uint16 frame_len = 0;
 static osThreadId_t uwbTaskHandle;
 
 static void uwb_task(void *argument) {
+    static const char *TAG = "uwb_task";
     reset_DW1000();
     port_set_dw1000_slowrate();
     if (dwt_initialise(DWT_LOADNONE) == DWT_ERROR) {
         while (1) {
+            elog_e(TAG, "dwt_initialise failed");
+            osDelay(1000);
         };
     }
     port_set_dw1000_fastrate();
 
     /* Configure DW1000. */
     dwt_configure(&config);
+    elog_i(TAG, "dwt_configure success");
 
-    uint32_t device_id = dwt_readdevid();    // 读取DW1000的设备ID
+    uint32_t device_id = dwt_readdevid();
+    elog_i(TAG, "device_id: %08X", device_id);
 
     /* Infinite loop */
     for (;;) {
@@ -81,11 +89,10 @@ static void uwb_task(void *argument) {
         if (status_reg & SYS_STATUS_RXFCG) {
             /* A frame has been received, copy it to our local buffer. */
             frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFL_MASK_1023;
+            elog_i(TAG, "frame_len: %d", frame_len);
             if (frame_len <= FRAME_LEN_MAX) {
                 dwt_readrxdata(rx_buffer, frame_len, 0);
-                
-                // 将UWB接收到的数据通过UDP发送到远程主机
-                // 示例：发送到192.168.1.100:9000
+
                 UDP_SendData(rx_buffer, frame_len, "192.168.0.103", 9000);
             }
 
@@ -94,6 +101,7 @@ static void uwb_task(void *argument) {
         } else {
             /* Clear RX error events in the DW1000 status register. */
             dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+            elog_e(TAG, "RX error");
         }
 
         osDelay(100);
