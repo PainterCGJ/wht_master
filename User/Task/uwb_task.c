@@ -2,7 +2,9 @@
 #include "deca_device_api.h"
 #include "deca_regs.h"
 #include "port.h"
-#include <stdio.h>
+
+// Forward declaration for UDP communication
+extern int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr, uint16_t port);
 
 #define FRAME_LEN_MAX 127
 
@@ -38,7 +40,6 @@ static void uwb_task(void *argument) {
     reset_DW1000();
     port_set_dw1000_slowrate();
     if (dwt_initialise(DWT_LOADNONE) == DWT_ERROR) {
-        printf("init fail\r\n");
         while (1) {
         };
     }
@@ -48,7 +49,6 @@ static void uwb_task(void *argument) {
     dwt_configure(&config);
 
     uint32_t device_id = dwt_readdevid();    // 读取DW1000的设备ID
-    printf("DW1000 Device ID: 0x%08X\r\n", device_id);
 
     /* Infinite loop */
     for (;;) {
@@ -83,11 +83,10 @@ static void uwb_task(void *argument) {
             frame_len = dwt_read32bitreg(RX_FINFO_ID) & RX_FINFO_RXFL_MASK_1023;
             if (frame_len <= FRAME_LEN_MAX) {
                 dwt_readrxdata(rx_buffer, frame_len, 0);
-                printf("frame_len: %d\r\n", frame_len);
-                for (i = 0; i < frame_len; i++) {
-                    printf("%02X ", rx_buffer[i]);
-                }
-                printf("\r\n");
+                
+                // 将UWB接收到的数据通过UDP发送到远程主机
+                // 示例：发送到192.168.1.100:9000
+                UDP_SendData(rx_buffer, frame_len, "192.168.0.103", 9000);
             }
 
             /* Clear good RX frame event in the DW1000 status register. */
@@ -95,7 +94,6 @@ static void uwb_task(void *argument) {
         } else {
             /* Clear RX error events in the DW1000 status register. */
             dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
-            printf("RX error\r\n");
         }
 
         osDelay(100);
