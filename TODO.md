@@ -1,1 +1,5 @@
-- [ ] 添加easylogger库
+- [x] 添加easylogger库
+- [x] 移植FreeRTOScpp wrapper库
+- [x] fix: 修复当前运行约10分钟后死机的问题
+- [ ] 移植hal_tiemr
+- [ ] 移植protocol
