@@ -25,8 +25,7 @@ MasterServer::MasterServer()
     initializeSlave2MasterHandlers();
 
     slaveDataProcessingTask = std::make_unique<SlaveDataProcT>(*this);
-    backendDataProcessingTask =
-        std::make_unique<BackDataProcT>(*this);
+    backendDataProcessingTask = std::make_unique<BackDataProcT>(*this);
     mainTask = std::make_unique<MainTask>(*this);
 }
 
@@ -1243,11 +1242,9 @@ void MasterServer::clearControlRequests() {
     elog_v(TAG, "Cleared all pending control requests");
 }
 
-void MasterServer::processDataCollection() {}
-
 bool MasterServer::sendToBackend(std::vector<uint8_t> &frame) {
     // 数据通过UDP_SendData发送
-    if (UDP_SendData(frame.data(), frame.size(), "192.168.0.103", 9000) == 0) {
+    if (UDP_SendData(frame.data(), frame.size(), "192.168.0.3", 8080) == 0) {
         elog_i(TAG, "sendToBackend success");
         return true;
     } else {
@@ -1305,51 +1302,44 @@ bool MasterServer::checkAndRecoverUWBHealth() {
 
     lastHealthCheck = currentTime;
 
-    // 检查是否有过多的UWB失败
-    // 这里可以添加更多的健康检查逻辑
-
     elog_i(TAG, "UWB health check completed, reset count: %d", uwbResetCount);
     return true;
 }
 
 // SlaveDataProcT 实现
-MasterServer::SlaveDataProcT::SlaveDataProcT(
-    MasterServer &parent)
+MasterServer::SlaveDataProcT::SlaveDataProcT(MasterServer &parent)
     : TaskClassS("SlaveDataProcT", TaskPrio_Mid), parent(parent) {}
 
 void MasterServer::SlaveDataProcT::task() {
     elog_i(TAG, "SlaveDataProcT started");
     uwb_rx_msg_t msg;
     for (;;) {
-        // if (UWB_ReceiveData(&msg, 0) == 0) {
-        //     // Process received data
-        //     // msg.data contains the actual UWB frame data
-        //     // msg.data_len contains frame length
+        if (UWB_ReceiveData(&msg, 0) == 0) {
 
-        //     elog_v(TAG, "SlaveDataProcT recvData size: %d",
-        //            msg.data_len);
-        //     // copy msg.data to recvData
-        //     recvData.assign(msg.data, msg.data + msg.data_len);
+            elog_v(TAG, "SlaveDataProcT recvData size: %d", msg.data_len);
+            // copy msg.data to recvData
+            recvData.assign(msg.data, msg.data + msg.data_len);
 
-        //     if (!recvData.empty()) {
-        //         // process recvData
-        //         parent.processor.processReceivedData(recvData);
+            if (!recvData.empty()) {
+                // process recvData
+                parent.processor.processReceivedData(recvData);
 
-        //         // process complete frame
-        //         Frame receivedFrame;
-        //         while (parent.processor.getNextCompleteFrame(receivedFrame)) {
-        //             parent.processFrame(receivedFrame);
-        //         }
-        //         recvData.clear();
-        //     }
-        // }
+                // process complete frame
+                Frame receivedFrame;
+                while (parent.processor.getNextCompleteFrame(receivedFrame))
+                {
+                    parent.processFrame(receivedFrame);
+                }
+
+                recvData.clear();
+            }
+        }
         TaskBase::delay(1);
     }
 }
 
 // BackDataProcT 实现
-MasterServer::BackDataProcT::BackDataProcT(
-    MasterServer &parent)
+MasterServer::BackDataProcT::BackDataProcT(MasterServer &parent)
     : TaskClassS("BackDataProcT", TaskPrio_Mid), parent(parent) {}
 
 void MasterServer::BackDataProcT::task() {
@@ -1357,9 +1347,6 @@ void MasterServer::BackDataProcT::task() {
     udp_rx_msg_t msg;
     for (;;) {
         if (UDP_ReceiveData(&msg, 0) == 0) {
-            // Process received data
-            // msg.data contains the actual UWB frame data
-            // msg.data_len contains frame length
 
             // copy msg.data to recvData
             recvData.assign(msg.data, msg.data + msg.data_len);
@@ -1413,7 +1400,6 @@ void MasterServer::MainTask::task() {
             // data No complex state management needed here
         }
 
-        parent.processDataCollection();
         parent.processTimeSync();
 
         // 定期检查设备在线状态
@@ -1451,13 +1437,10 @@ void MasterServer::run() {
         elog_d(TAG, "MainTask started");
     }
 
-    uint8_t data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-
     // 主循环
     while (1) {
-        UDP_SendData(data, 10, "192.168.0.107", 8080);
-        elog_i(TAG, "send data to backend");
-        vTaskDelay(pdMS_TO_TICKS(100));
+        elog_i(TAG, "hptimer ms: %d", getCurrentTimestampMs());
+        vTaskDelay(pdMS_TO_TICKS(500));
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
     }
 }

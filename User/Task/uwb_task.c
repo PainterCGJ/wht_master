@@ -165,9 +165,6 @@ static void uwb_comm_task(void *argument) {
 
                 // 清除接收完成标志
                 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_RXFCG);
-
-                UDP_SendData(rx_msg.data, rx_msg.data_len, "192.168.0.107",
-                             9000);
             } else {
                 // 接收错误
                 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);

@@ -115,6 +115,8 @@ int main(void)
 
   elog_start();
 
+  HAL_TIM_Base_Start(&htim2);
+
   /* USER CODE END 2 */
 
   /* Init scheduler */

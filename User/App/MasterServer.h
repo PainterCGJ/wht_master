@@ -173,7 +173,6 @@ class MasterServer {
                                    uint8_t status);
 
     // 数据采集管理
-    void processDataCollection();
     void startSlaveDataCollection();
     void stopSlaveDataCollection();
     void processTimeSync();

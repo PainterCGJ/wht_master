@@ -7,7 +7,7 @@
 #include "lwip/sockets.h"
 #include "main.h"
 
-#define UDP_SERVER_PORT 8000
+#define UDP_SERVER_PORT 8080
 #define UDP_BUFFER_SIZE 512
 #define TX_QUEUE_SIZE   10
 #define RX_QUEUE_SIZE   10

@@ -8,16 +8,13 @@ extern "C" {
 #include "hptimer.hpp"
 #include "task.h"
 
-
 #ifdef __cplusplus
 }
 #endif
 
 static volatile bool s_initialized = false;
 
-uint32_t hal_hptimer_get_us(void) {
-    return __HAL_TIM_GET_COUNTER(&htim2);    // 返回当前计数值（1μs 单位）
-}
+uint32_t hal_hptimer_get_us(void) { return __HAL_TIM_GET_COUNTER(&htim2); }
 
 uint32_t hal_hptimer_get_ms(void) { return hal_hptimer_get_us() / 1000; }
 
