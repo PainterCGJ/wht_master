@@ -1439,7 +1439,7 @@ void MasterServer::run() {
 
     // 主循环
     while (1) {
-        elog_i(TAG, "hptimer ms: %d", getCurrentTimestampMs());
+        // elog_i(TAG, "hptimer ms: %d", getCurrentTimestampMs());
         vTaskDelay(pdMS_TO_TICKS(500));
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
     }

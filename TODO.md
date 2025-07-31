@@ -6,5 +6,5 @@
 - [x] 移植protocol
 - [ ] 移植master_app
   - [x] 验证udp通信
-  - [ ] 验证uwb通信
-- [ ] 修复udp通讯经常性死机的问题
+  - [x] 验证uwb通信
+- [x] 修复udp通讯经常性死机的问题
