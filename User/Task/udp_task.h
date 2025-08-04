@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define UDP_BUFFER_SIZE     512
+#define UDP_BUFFER_SIZE 1016
 
 // 接收消息结构体
 typedef struct {

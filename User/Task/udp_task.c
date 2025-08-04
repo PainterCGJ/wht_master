@@ -6,9 +6,9 @@
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "main.h"
+#include "udp_task.h"
 
 #define UDP_SERVER_PORT 8080
-#define UDP_BUFFER_SIZE 512
 #define TX_QUEUE_SIZE   10
 #define RX_QUEUE_SIZE   10
 
@@ -26,13 +26,6 @@ typedef struct {
     uint16_t data_len;
     uint8_t data[UDP_BUFFER_SIZE];
 } tx_msg_t;
-
-// 接收消息结构体
-typedef struct {
-    struct sockaddr_in src_addr;    // 源地址
-    uint16_t data_len;
-    uint8_t data[UDP_BUFFER_SIZE];
-} udp_rx_msg_t;
 
 // 全局变量
 static osMessageQueueId_t txQueue;    // 发送队列
