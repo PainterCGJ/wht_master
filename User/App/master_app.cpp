@@ -14,18 +14,18 @@ extern void UDP_Task_Init(void);
 
 extern "C" int main_app(void) {
     UWB_Task_Init();    // 初始化UWB通信任务
-    UDP_Task_Init();    // 初始化UDP通信任务
+    // UDP_Task_Init();    // 初始化UDP通信任务
 
-    MasterServer masterServer;
-    masterServer.run();
+    // MasterServer masterServer;
+    // masterServer.run();
 
-    uint8_t data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    // uint8_t data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     for (;;) {
 
-        UDP_SendData(data, 10, "192.168.0.107", 8080);
+        // UDP_SendData(data, 10, "192.168.0.107", 8080);
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_0);
-        elog_v("master_app", "Hello World");
-        osDelay(100);
+        // elog_v("master_app", "Hello World");
+        osDelay(500);
     }
     return 0;
 }

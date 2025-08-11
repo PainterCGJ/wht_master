@@ -1,11 +1,21 @@
 #include "uwb_task.h"
 
 #include "cmsis_os2.h"
+
+#if UWB_CHIP_TYPE_DW1000
 #include "deca_device_api.h"
 #include "deca_regs.h"
-#include "elog.h"
 #include "port.h"
-#include <string.h>
+#elif UWB_CHIP_TYPE_CX310
+#include "CX310.hpp"
+#include "uwb_interface.hpp"
+
+// 外部声明全局指针
+extern CX310_SlaveSpiAdapter *g_uwb_adapter;
+
+#endif
+
+#include "elog.h"
 
 #define TX_QUEUE_SIZE 10
 #define RX_QUEUE_SIZE 10
@@ -34,6 +44,11 @@ static osThreadId_t uwbCommTaskHandle;
 typedef void (*uwb_rx_callback_t)(const uwb_rx_msg_t *msg);
 static uwb_rx_callback_t uwb_rx_callback = NULL;
 
+static uint8_t rx_buffer[FRAME_LEN_MAX];
+static uint32_t status_reg = 0;
+static uint16_t frame_len = 0;
+
+#if UWB_CHIP_TYPE_DW1000
 /* Default communication configuration. */
 static dwt_config_t config = {
     5,                  // 通道号，推荐5或2，5抗干扰稍强
@@ -47,10 +62,6 @@ static dwt_config_t config = {
     DWT_PHRMODE_EXT,    // 标准PHY头
     (1025 + 64 - 32)    // SFD超时时间：可按 PLEN + margin 设置
 };
-
-static uint8_t rx_buffer[FRAME_LEN_MAX];
-static uint32_t status_reg = 0;
-static uint16_t frame_len = 0;
 
 // UWB通信任务
 static void uwb_comm_task(void *argument) {
@@ -163,10 +174,53 @@ static void uwb_comm_task(void *argument) {
             // 重新启动接收
             dwt_rxenable(DWT_START_RX_IMMEDIATE);
         }
-
-        osDelay(1);    // 防止任务占满CPU
     }
 }
+#elif UWB_CHIP_TYPE_CX310
+static void uwb_comm_task(void *argument) {
+    static const char *TAG = "uwb_comm";
+    uwb_tx_msg_t tx_msg;
+    uwb_rx_msg_t rx_msg;
+
+    CX310<CX310_SlaveSpiAdapter> uwb;
+    // 设置全局指针，用于中断处理
+    g_uwb_adapter = &uwb.get_interface();
+
+    std::vector<uint8_t> buffer = {0};
+
+    if (uwb.init()) {
+        elog_i(TAG, "uwb.init success");
+    }
+    osDelay(3);
+    uwb.set_recv_mode();
+
+    for (;;) {
+        if (osMessageQueueGet(uwb_txQueue, &tx_msg, NULL, 0) == osOK) {
+            // 发送UWB数据
+            std::vector<uint8_t> tx_data(tx_msg.data,
+                                         tx_msg.data + tx_msg.data_len);
+            uwb.data_transmit(tx_data);
+            // 发送完成后重新启动接收
+            uwb.set_recv_mode();
+        }
+
+        if (uwb.get_recv_data(buffer)) {
+            uwb.set_recv_mode();
+            elog_w(TAG, "buffer size: %d", buffer.size());
+            rx_msg.data_len = buffer.size();
+            for (int i = 0; i < rx_msg.data_len; i++) {
+                rx_msg.data[i] = buffer[i];
+            }
+            rx_msg.timestamp = osKernelGetTickCount();
+            rx_msg.status_reg = 0;
+            osMessageQueuePut(uwb_rxQueue, &rx_msg, 0, 0);
+        }
+
+        uwb.update();
+        osDelay(1);
+    }
+}
+#endif
 
 // 初始化UWB通信任务
 void UWB_Task_Init(void) {
@@ -188,7 +242,7 @@ void UWB_Task_Init(void) {
     const osThreadAttr_t uwbTask_attributes = {
         .name = "uwbCommTask",
         .stack_size = 512 * 16,
-        .priority = (osPriority_t)osPriorityNormal,
+        .priority = (osPriority_t)osPriorityRealtime,
     };
     uwbCommTaskHandle = osThreadNew(uwb_comm_task, NULL, &uwbTask_attributes);
 
@@ -210,8 +264,10 @@ int UWB_SendData(const uint8_t *data, uint16_t len, uint32_t delay_ms) {
     msg.data_len = len;
     msg.delay_ms = delay_ms;
 
-    // use memcpy instead
-    memcpy(msg.data, data, len);
+    // 复制数据到消息结构体
+    for (uint16_t i = 0; i < len; i++) {
+        msg.data[i] = data[i];
+    }
 
     // 发送到队列
     if (osMessageQueuePut(uwb_txQueue, &msg, 0, 100) != osOK) {

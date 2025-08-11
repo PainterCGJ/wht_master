@@ -31,6 +31,18 @@ enable_language(C ASM)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
+set(UWB_CHIP_TYPE "CX310")
+
+if(UWB_CHIP_TYPE STREQUAL "DW1000")
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PUBLIC UWB_CHIP_TYPE_DW1000)
+    target_link_libraries(${CMAKE_PROJECT_NAME} dw1000)
+elseif(UWB_CHIP_TYPE STREQUAL "CX310")
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PUBLIC UWB_CHIP_TYPE_CX310)
+    target_link_libraries(${CMAKE_PROJECT_NAME} cx310)
+else()
+    message(FATAL_ERROR "Unsupported chip type: ${UWB_CHIP_TYPE}")
+endif()
+
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
 add_subdirectory(User)
@@ -65,7 +77,8 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
     # Add user defined libraries
-    dw1000
+    # dw1000
+    cx310
     easylogger
     FreeRTOScpp
     WhtsProtocol
