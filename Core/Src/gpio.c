@@ -86,7 +86,7 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : UWB_INT_Pin */
   GPIO_InitStruct.Pin = UWB_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(UWB_INT_GPIO_Port, &GPIO_InitStruct);
 
@@ -97,7 +97,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(UWB_RDY_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 }

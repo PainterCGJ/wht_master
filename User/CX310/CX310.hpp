@@ -686,7 +686,7 @@ class CX310 {
         if (uwbs_sta == READY) {
             return true;
         }
-        elog_e(TAG, "UWBS not ready");
+        // elog_e(TAG, "UWBS not ready");
         return false;
     }
     void __uwbs_state_machine() {
