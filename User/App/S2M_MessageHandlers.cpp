@@ -79,7 +79,12 @@ void ShortIdConfirmHandler::executeActions(uint32_t slaveId,
         elog_w("ShortIdConfirmHandler",
                "Device 0x%08X failed to confirm short ID %d (status=%d)",
                slaveId, confirmMsg->shortId, confirmMsg->status);
-    }
+    } 
+
+    // 移除相应的待处理命令，防止重试
+    server->removePendingCommand(
+        slaveId,
+        static_cast<uint8_t>(Master2SlaveMessageId::SHORT_ID_ASSIGN_MSG));
 }
 
 // SetTime Response Message Handler
