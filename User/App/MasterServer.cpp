@@ -1060,7 +1060,7 @@ bool MasterServer::sendSetTimeToSlave(uint32_t slaveId) {
     bool success = waitForTimeSyncResponse(slaveId, 1000);    // 等待1秒
 
     if (success) {
-        elog_i(TAG, "Time sync successful for slave 0x%08X", slaveId);
+        // elog_i(TAG, "Time sync successful for slave 0x%08X", slaveId);
     } else {
         elog_w(TAG, "Time sync failed or timeout for slave 0x%08X", slaveId);
     }
