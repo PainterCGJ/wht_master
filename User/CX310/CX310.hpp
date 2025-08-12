@@ -40,6 +40,7 @@ class CX310 {
 
     std::function<bool(const UciCtrlPacket&)> check_rsp = nullptr;
     std::function<bool()> cmd_packer = nullptr;
+    bool uwb_tx_done;
 
     /**
      * @brief 初始化
@@ -676,7 +677,7 @@ class CX310 {
         init_success &=
             set_psdu_data_rate(PARAM_PSDU_DATA_RATE_7_8);    // PSDU data rate 4
 
-        init_success &= set_tx_power(1);    // TX power 5
+        init_success &= set_tx_power(3);    // TX power 5
         return 0;
     }
 

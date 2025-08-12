@@ -39,7 +39,7 @@ typedef struct {
 static osMessageQueueId_t uwb_txQueue;    // UWB发送队列
 static osMessageQueueId_t uwb_rxQueue;    // UWB接收队列
 static osThreadId_t uwbCommTaskHandle;
-static osSemaphoreId_t uwb_txSemaphore;   // UWB发送信号量
+static osSemaphoreId_t uwb_txSemaphore;    // UWB发送信号量
 
 // 接收数据回调函数指针
 typedef void (*uwb_rx_callback_t)(const uwb_rx_msg_t *msg);
@@ -106,8 +106,8 @@ static void uwb_comm_task(void *argument) {
                         dwt_starttx(DWT_START_TX_IMMEDIATE);
 
                         // 等待发送完成
-                        while (
-                            !(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS)) {
+                        while (!(dwt_read32bitreg(SYS_STATUS_ID) &
+                                 SYS_STATUS_TXFRS)) {
                             osDelay(1);
                         }
                         dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
@@ -206,15 +206,16 @@ static void uwb_comm_task(void *argument) {
                 // 发送UWB数据
                 std::vector<uint8_t> tx_data(tx_msg.data,
                                              tx_msg.data + tx_msg.data_len);
+                elog_i(TAG, "tx begin");
                 uwb.data_transmit(tx_data);
                 // 发送完成后重新启动接收
-                uwb.set_recv_mode();
+                // uwb.set_recv_mode();
             }
         }
 
         if (uwb.get_recv_data(buffer)) {
             // uwb.set_recv_mode();
-            elog_w(TAG, "buffer size: %d", buffer.size());
+            elog_w(TAG, "rx size: %d", buffer.size());
             rx_msg.data_len = buffer.size();
             for (int i = 0; i < rx_msg.data_len; i++) {
                 rx_msg.data[i] = buffer[i];
@@ -222,6 +223,7 @@ static void uwb_comm_task(void *argument) {
             rx_msg.timestamp = osKernelGetTickCount();
             rx_msg.status_reg = 0;
             osMessageQueuePut(uwb_rxQueue, &rx_msg, 0, 0);
+            // osDelay(20);
         }
 
         uwb.update();
