@@ -38,6 +38,21 @@ class SetTimeMessage : public Message {
     const char* getMessageTypeName() const override { return "Set Time"; }
 };
 
+class SlaveControlMessage : public Message {
+   public:
+    SlaveRunMode mode;     // 运行模式
+    uint8_t enable;        // 1：启动, 0：停止
+    uint64_t startTime;    // 启动时间戳（微秒），用于同步启动
+
+    // 必须实现的虚函数
+    std::vector<uint8_t> serialize() const override;
+    bool deserialize(const std::vector<uint8_t>& data) override;
+    uint8_t getMessageId() const override {
+        return static_cast<uint8_t>(Master2SlaveMessageId::SLAVE_CONTROL_MSG);
+    }
+    const char* getMessageTypeName() const override { return "Slave Control"; }
+};
+
 class ConductionConfigMessage : public Message {
    public:
     uint8_t timeSlot;
@@ -126,21 +141,6 @@ class ShortIdAssignMessage : public Message {
     const char* getMessageTypeName() const override {
         return "Short ID Assign";
     }
-};
-
-class SlaveControlMessage : public Message {
-   public:
-    SlaveRunMode mode;    // 运行模式
-    uint8_t enable;       // 1：启动, 0：停止
-    uint64_t startTime;   // 启动时间戳（微秒），用于同步启动
-
-    // 必须实现的虚函数
-    std::vector<uint8_t> serialize() const override;
-    bool deserialize(const std::vector<uint8_t>& data) override;
-    uint8_t getMessageId() const override {
-        return static_cast<uint8_t>(Master2SlaveMessageId::SLAVE_CONTROL_MSG);
-    }
-    const char* getMessageTypeName() const override { return "Slave Control"; }
 };
 
 }    // namespace Master2Slave
