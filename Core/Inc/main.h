@@ -63,6 +63,8 @@ void Error_Handler(void);
 #define SPI4_NSS_GPIO_Port GPIOE
 #define UWB_EN_Pin GPIO_PIN_2
 #define UWB_EN_GPIO_Port GPIOF
+#define RUN_LED_Pin GPIO_PIN_0
+#define RUN_LED_GPIO_Port GPIOA
 #define UWB_INT_Pin GPIO_PIN_6
 #define UWB_INT_GPIO_Port GPIOB
 #define UWB_INT_EXTI_IRQn EXTI9_5_IRQn

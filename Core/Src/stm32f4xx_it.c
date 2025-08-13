@@ -95,7 +95,7 @@ void HardFault_Handler(void)
   {
     /* USER CODE BEGIN W1_HardFault_IRQn 0 */
       // toglle led fast blink
-      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      HAL_GPIO_TogglePin(RUN_LED_GPIO_Port, RUN_LED_Pin);
       for (int i = 0; i < 1000000; i++) {
       }
     /* USER CODE END W1_HardFault_IRQn 0 */
