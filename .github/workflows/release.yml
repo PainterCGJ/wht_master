@@ -52,7 +52,6 @@ jobs:
           # 获取最新的 tag，如果没有则使用 commit hash
           if git describe --tags --abbrev=0 2>/dev/null; then
             VERSION=$(git describe --tags --abbrev=0)
-            VERSION=${VERSION#v} # 移除前缀 v
           else
             VERSION=$(git rev-parse --short HEAD)
           fi
@@ -62,8 +61,8 @@ jobs:
       - name: Prepare Release Assets
         shell: bash
         run: |
-          cp build/debug/wht_master.hex wht_master_v${VERSION}.hex
-          echo "FIRMWARE_NAME=wht_master_v${VERSION}.hex" >> $GITHUB_ENV
+          cp build/debug/wht_master.hex wht-master-${VERSION}.hex
+          cp build/debug/wht_master.bin wht-master-${VERSION}.bin
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -78,8 +77,9 @@ jobs:
             - Branch: ${{ github.ref_name }}
             
             ### Assets
-            - `wht_master_v${{ steps.get_version.outputs.version }}.hex` - Firmware binary
-          files: wht_master_v${{ steps.get_version.outputs.version }}.hex
+            - `wht-master-${{ steps.get_version.outputs.version }}.hex` - Firmware binary
+            - `wht-master-${{ steps.get_version.outputs.version }}.bin` - Firmware binary
+          files: wht-master-${{ steps.get_version.outputs.version }}.hex, wht-master-${{ steps.get_version.outputs.version }}.bin
           draft: false
           prerelease: false
         env:

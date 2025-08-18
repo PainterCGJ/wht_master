@@ -223,7 +223,7 @@ static void uwb_comm_task(void *argument) {
             rx_msg.timestamp = osKernelGetTickCount();
             rx_msg.status_reg = 0;
             osMessageQueuePut(uwb_rxQueue, &rx_msg, 0, 0);
-            // osDelay(20);
+            osDelay(20);
         }
 
         uwb.update();
