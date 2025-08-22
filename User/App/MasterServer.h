@@ -36,7 +36,7 @@ class MasterServer {
 
     // 时间同步相关
     uint32_t lastSyncTime;
-    static constexpr uint32_t SYNC_INTERVAL_MS = 1000;    // 1秒发送一次同步消息
+    static constexpr uint32_t SYNC_INTERVAL_MS = 1000;    // 已弃用：现在使用基于导电周期的动态间隔 (Total Conduction Num × CONDUCTION_INTERVAL)
     bool initialTimeSyncCompleted;  // 标记是否已完成初始时间同步
     
     // 时间同步响应跟踪
@@ -196,6 +196,9 @@ class MasterServer {
     // Device management
     DeviceManager &getDeviceManager() { return deviceManager; }
     ProtocolProcessor &getProcessor() { return processor; }
+    
+    // Calculate total conduction number for sync interval
+    uint16_t calculateTotalConductionNum() const;
 
     // Register message handlers
     void registerMessageHandler(uint8_t messageId,

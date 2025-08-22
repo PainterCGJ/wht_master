@@ -9,6 +9,7 @@
 #include "SemaphoreCPP.h"
 #include "elog.h"
 #include "hptimer.hpp"
+#include "master_app.hpp"
 #include "udp_task.h"
 #include "uwb_task.h"
 
@@ -87,6 +88,20 @@ void MasterServer::initializeSlave2MasterHandlers() {
 }
 
 uint32_t MasterServer::getCurrentTimestamp() { return hal_hptimer_get_ms(); }
+
+uint16_t MasterServer::calculateTotalConductionNum() const {
+    uint16_t totalConductionNum = 0;
+    auto connectedSlaves = deviceManager.getConnectedSlavesInConfigOrder();
+    
+    for (uint32_t slaveId : connectedSlaves) {
+        if (deviceManager.hasSlaveConfig(slaveId)) {
+            const auto &slaveConfig = deviceManager.getSlaveConfig(slaveId);
+            totalConductionNum += slaveConfig.conductionNum;
+        }
+    }
+    
+    return totalConductionNum;
+}
 
 void MasterServer::sendResponseToBackend(std::unique_ptr<Message> response) {
     if (!response) {
@@ -972,8 +987,17 @@ void MasterServer::processTimeSync() {
 
     uint32_t currentTime = getCurrentTimestampMs();
 
-    // 检查是否需要发送时间同步消息
-    if (currentTime - lastSyncTime >= SYNC_INTERVAL_MS) {
+    // 计算基于导电周期的同步间隔: Total Conduction Num × CONDUCTION_INTERVAL
+    uint16_t totalConductionNum = calculateTotalConductionNum();
+    uint32_t cycleSyncIntervalMs = totalConductionNum * CONDUCTION_INTERVAL;
+    
+    // 如果没有配置的从机或totalConductionNum为0，使用默认间隔
+    if (cycleSyncIntervalMs == 0) {
+        cycleSyncIntervalMs = 1000; // 默认1秒
+    }
+
+    // 检查是否需要发送时间同步消息（基于导电周期）
+    if (currentTime - lastSyncTime >= cycleSyncIntervalMs) {
         // 创建同步消息
         auto syncCmd = std::make_unique<Master2Slave::SyncMessage>();
         // 将当前时间转换为微秒时间戳
@@ -987,8 +1011,8 @@ void MasterServer::processTimeSync() {
 
         elog_v(TAG,
                "Broadcasted sync message for time synchronization "
-               "(timestamp=%lu us)",
-               (unsigned long)timestampUs);
+               "(timestamp=%lu us, cycle_interval=%lu ms, total_conduction=%d)",
+               (unsigned long)timestampUs, (unsigned long)cycleSyncIntervalMs, totalConductionNum);
     }
 }
 

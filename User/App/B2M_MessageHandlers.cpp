@@ -141,7 +141,7 @@ void ModeConfigHandler::executeActions(const Message &message,
                         auto condCmd = std::make_unique<
                             Master2Slave::ConductionConfigMessage>();
                         condCmd->timeSlot = 1;
-                        condCmd->interval = INTERVAL;    // 20ms default
+                        condCmd->interval = CONDUCTION_INTERVAL;    // 20ms default
                         condCmd->totalConductionNum = totalConductionNum;
                         condCmd->startConductionNum = currentConductionStart;
                         condCmd->conductionNum = slaveConfig.conductionNum;

@@ -1,3 +1,3 @@
 #include "TaskCPP.h"
 
-#define INTERVAL 10
+#define CONDUCTION_INTERVAL 10
