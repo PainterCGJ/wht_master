@@ -124,6 +124,7 @@ class DeviceManager {
     void addDeviceInfo(uint32_t deviceId, uint8_t versionMajor,
                        uint8_t versionMinor, uint16_t versionPatch);
     void updateDeviceAnnounce(uint32_t deviceId);
+    void removeDeviceInfo(uint32_t deviceId);    // 从设备列表中删除设备
     bool shouldAssignShortId(uint32_t deviceId) const;
     uint8_t assignShortId(uint32_t deviceId);
     void confirmShortId(uint32_t deviceId, uint8_t shortId);
@@ -133,6 +134,8 @@ class DeviceManager {
     DeviceInfo getDeviceInfo(uint32_t deviceId) const;
     void updateDeviceOnlineStatus(
         uint32_t timeoutMs = 30000);    // 检查设备在线状态
+    void cleanupExpiredDevices(
+        uint32_t timeoutMs = 60000);    // 清理超时设备（删除而不是标记离线）
 
     // Configuration management
     void setSlaveConfig(

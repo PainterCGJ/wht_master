@@ -1400,6 +1400,9 @@ void MasterServer::MainTask::task() {
     uint32_t lastDeviceStatusCheck = 0;
     uint32_t deviceStatusCheckInterval =
         30000;    // Check device status every 30 seconds
+    uint32_t lastDeviceCleanup = 0;
+    uint32_t deviceCleanupInterval =
+        60000;    // Clean up expired devices every 60 seconds
 
     for (;;) {
         uint32_t currentTime = getCurrentTimestampMs();
@@ -1417,10 +1420,16 @@ void MasterServer::MainTask::task() {
 
         parent.processTimeSync();
 
-        // 定期检查设备在线状态
+        // 定期检查设备在线状态(discarded)
         if (currentTime - lastDeviceStatusCheck >= deviceStatusCheckInterval) {
             parent.getDeviceManager().updateDeviceOnlineStatus();
             lastDeviceStatusCheck = currentTime;
+        }
+        
+        // 定期清理超时设备（删除而不是标记离线）
+        if (currentTime - lastDeviceCleanup >= deviceCleanupInterval) {
+            parent.getDeviceManager().cleanupExpiredDevices(90000);  // 90秒超时删除
+            lastDeviceCleanup = currentTime;
         }
 
         // 定期检查UWB模块健康状态

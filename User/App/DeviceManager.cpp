@@ -161,10 +161,6 @@ bool DeviceManager::isDataCollectionActive() const {
     return dataCollectionActive;
 }
 
-// 注意：以下方法已移除，因为推送式架构不需要复杂的周期管理：
-// - isSyncSent, setCycleInterval, getCycleInterval, isReadingPhaseTimeout,
-// getSlavesWithoutData
-
 // 设备信息管理方法实现
 void DeviceManager::addDeviceInfo(uint32_t deviceId, uint8_t versionMajor,
                                   uint8_t versionMinor, uint16_t versionPatch) {
@@ -200,6 +196,35 @@ void DeviceManager::updateDeviceAnnounce(uint32_t deviceId) {
 
         elog_v("DeviceManager", "Device 0x%08X announce count: %d", deviceId,
                it->second.announceCount);
+    }
+}
+
+void DeviceManager::removeDeviceInfo(uint32_t deviceId) {
+    auto it = deviceInfos.find(deviceId);
+    if (it != deviceInfos.end()) {
+        elog_i("DeviceManager", "Removing device 0x%08X from device list", deviceId);
+        
+        // only remove device info, not slave info
+        deviceInfos.erase(it);
+    
+        // // 同时从连接的从机列表中删除
+        // removeSlave(deviceId);
+        
+        // // 从从机配置中删除
+        // auto configIt = slaveConfigs.find(deviceId);
+        // if (configIt != slaveConfigs.end()) {
+        //     slaveConfigs.erase(configIt);
+        //     elog_v("DeviceManager", "Removed slave config for device 0x%08X", deviceId);
+        // }
+        
+        // // 从配置顺序中删除
+        // auto orderIt = std::find(slaveConfigOrder.begin(), slaveConfigOrder.end(), deviceId);
+        // if (orderIt != slaveConfigOrder.end()) {
+        //     slaveConfigOrder.erase(orderIt);
+        //     elog_v("DeviceManager", "Removed device 0x%08X from config order", deviceId);
+        // }
+        
+        elog_i("DeviceManager", "Device 0x%08X completely removed from all lists", deviceId);
     }
 }
 
@@ -278,47 +303,48 @@ DeviceInfo DeviceManager::getDeviceInfo(uint32_t deviceId) const {
 }
 
 void DeviceManager::updateDeviceOnlineStatus(uint32_t timeoutMs) {
-    uint32_t currentTime = getCurrentTimestampMs();
-    int offlineCount = 0;
-    int onlineCount = 0;
+    // uint32_t currentTime = getCurrentTimestampMs();
+    // int offlineCount = 0;
+    // int onlineCount = 0;
 
-    for (auto& pair : deviceInfos) {
-        DeviceInfo& info = pair.second;
-        bool wasOnline = info.online;
+    // for (auto& pair : deviceInfos) {
+    //     DeviceInfo& info = pair.second;
+    //     bool wasOnline = info.online;
 
-        // 检查设备是否超时
-        if (currentTime - info.lastSeenTime > timeoutMs) {
-            if (wasOnline) {
-                info.online = 0;
-                offlineCount++;
-                elog_w(
-                    "DeviceManager",
-                    "Device 0x%08X went offline in device info (timeout=%u ms)",
-                    info.deviceId, timeoutMs);
+    //     // 检查设备是否超时 - 这里只更新在线状态，不删除设备
+    //     // 设备的实际删除由cleanupExpiredDevices()方法处理
+    //     if (currentTime - info.lastSeenTime > timeoutMs) {
+    //         if (wasOnline) {
+    //             info.online = 0;
+    //             offlineCount++;
+    //             elog_w(
+    //                 "DeviceManager",
+    //                 "Device 0x%08X went offline in device info (timeout=%u ms)",
+    //                 info.deviceId, timeoutMs);
 
-                // 注意：不要调用removeSlave，保持现有的数据采集逻辑不受影响
-                // 设备信息的在线状态仅用于后端查询，不影响数据采集
-            }
-        } else {
-            if (!wasOnline) {
-                info.online = 1;
-                onlineCount++;
-                elog_i("DeviceManager",
-                       "Device 0x%08X came back online in device info",
-                       info.deviceId);
+    //             // 注意：不要调用removeSlave，保持现有的数据采集逻辑不受影响
+    //             // 设备信息的在线状态仅用于后端查询，不影响数据采集
+    //         }
+    //     } else {
+    //         if (!wasOnline) {
+    //             info.online = 1;
+    //             onlineCount++;
+    //             elog_i("DeviceManager",
+    //                    "Device 0x%08X came back online in device info",
+    //                    info.deviceId);
 
-                // 注意：不要调用addSlave，保持现有的数据采集逻辑不受影响
-                // 设备重新在线的状态仅更新设备信息，不自动加入数据采集
-            }
-        }
-    }
+    //             // 注意：不要调用addSlave，保持现有的数据采集逻辑不受影响
+    //             // 设备重新在线的状态仅更新设备信息，不自动加入数据采集
+    //         }
+    //     }
+    // }
 
-    if (offlineCount > 0 || onlineCount > 0) {
-        elog_v("DeviceManager",
-               "Device info status update: %d went offline, %d came online "
-               "(data collection not affected)",
-               offlineCount, onlineCount);
-    }
+    // if (offlineCount > 0 || onlineCount > 0) {
+    //     elog_v("DeviceManager",
+    //            "Device info status update: %d went offline, %d came online "
+    //            "(device cleanup handled separately by cleanupExpiredDevices)",
+    //            offlineCount, onlineCount);
+    // }
 }
 
 void DeviceManager::markSlaveControlResponseReceived(uint32_t slaveId) {
@@ -327,4 +353,30 @@ void DeviceManager::markSlaveControlResponseReceived(uint32_t slaveId) {
 
     elog_v("DeviceManager",
            "Marked slave control response received for slave 0x%08X", slaveId);
+}
+
+void DeviceManager::cleanupExpiredDevices(uint32_t timeoutMs) {
+    uint32_t currentTime = getCurrentTimestampMs();
+    std::vector<uint32_t> devicesToRemove;
+    
+    // 收集需要删除的设备ID
+    for (const auto& pair : deviceInfos) {
+        const DeviceInfo& info = pair.second;
+        if (currentTime - info.lastSeenTime > timeoutMs) {
+            devicesToRemove.push_back(info.deviceId);
+        }
+    }
+    
+    // 删除超时的设备
+    for (uint32_t deviceId : devicesToRemove) {
+        elog_w("DeviceManager", 
+               "Device 0x%08X expired after %u ms of inactivity, removing from device list",
+               deviceId, timeoutMs);
+        removeDeviceInfo(deviceId);
+    }
+    
+    if (!devicesToRemove.empty()) {
+        elog_i("DeviceManager", "Cleaned up %d expired devices", 
+               static_cast<int>(devicesToRemove.size()));
+    }
 }
