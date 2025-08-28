@@ -143,10 +143,8 @@ int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr,
     msg.type = MSG_TYPE_SEND_DATA;
     msg.data_len = len;
 
-    // 手动复制数据
-    for (int i = 0; i < len; i++) {
-        msg.data[i] = data[i];
-    }
+    // use memcpy to copy data
+    memcpy(msg.data, data, len);
 
     // 设置目标地址
     msg.dest_addr.sin_family = AF_INET;

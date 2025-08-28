@@ -208,6 +208,7 @@ static void uwb_comm_task(void *argument) {
                                              tx_msg.data + tx_msg.data_len);
                 elog_i(TAG, "tx begin");
                 uwb.data_transmit(tx_data);
+                osDelay(2);
                 // 发送完成后重新启动接收
                 // uwb.set_recv_mode();
             }
@@ -281,10 +282,8 @@ int UWB_SendData(const uint8_t *data, uint16_t len, uint32_t delay_ms) {
     msg.data_len = len;
     msg.delay_ms = delay_ms;
 
-    // 复制数据到消息结构体
-    for (uint16_t i = 0; i < len; i++) {
-        msg.data[i] = data[i];
-    }
+    // use memcpy to copy data
+    memcpy(msg.data, data, len);
 
     // 发送到队列
     if (osMessageQueuePut(uwb_txQueue, &msg, 0, 100) != osOK) {
