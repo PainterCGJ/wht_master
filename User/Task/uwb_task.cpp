@@ -45,11 +45,10 @@ static osSemaphoreId_t uwb_txSemaphore;    // UWB发送信号量
 typedef void (*uwb_rx_callback_t)(const uwb_rx_msg_t *msg);
 static uwb_rx_callback_t uwb_rx_callback = NULL;
 
+#if UWB_CHIP_TYPE_DW1000
 static uint8_t rx_buffer[FRAME_LEN_MAX];
 static uint32_t status_reg = 0;
 static uint16_t frame_len = 0;
-
-#if UWB_CHIP_TYPE_DW1000
 /* Default communication configuration. */
 static dwt_config_t config = {
     5,                  // 通道号，推荐5或2，5抗干扰稍强
@@ -181,6 +180,9 @@ static void uwb_comm_task(void *argument) {
     }
 }
 #elif UWB_CHIP_TYPE_CX310
+
+#define UWB_TX_DELAY_MS 0
+
 static void uwb_comm_task(void *argument) {
     static const char *TAG = "uwb_comm";
     uwb_tx_msg_t tx_msg;
@@ -208,7 +210,6 @@ static void uwb_comm_task(void *argument) {
                                              tx_msg.data + tx_msg.data_len);
                 elog_i(TAG, "tx begin");
                 uwb.data_transmit(tx_data);
-                osDelay(2);
                 // 发送完成后重新启动接收
                 // uwb.set_recv_mode();
             }
@@ -216,7 +217,7 @@ static void uwb_comm_task(void *argument) {
 
         if (uwb.get_recv_data(buffer)) {
             // uwb.set_recv_mode();
-            elog_w(TAG, "rx size: %d", buffer.size());
+            // elog_w(TAG, "rx size: %d", buffer.size());
             rx_msg.data_len = buffer.size();
             for (int i = 0; i < rx_msg.data_len; i++) {
                 rx_msg.data[i] = buffer[i];
@@ -224,7 +225,7 @@ static void uwb_comm_task(void *argument) {
             rx_msg.timestamp = osKernelGetTickCount();
             rx_msg.status_reg = 0;
             osMessageQueuePut(uwb_rxQueue, &rx_msg, 0, 0);
-            osDelay(20);
+            // osDelay(UWB_TX_DELAY_MS);
         }
 
         uwb.update();
@@ -282,8 +283,10 @@ int UWB_SendData(const uint8_t *data, uint16_t len, uint32_t delay_ms) {
     msg.data_len = len;
     msg.delay_ms = delay_ms;
 
-    // use memcpy to copy data
-    memcpy(msg.data, data, len);
+    // 复制数据到消息结构体
+    for (uint16_t i = 0; i < len; i++) {
+        msg.data[i] = data[i];
+    }
 
     // 发送到队列
     if (osMessageQueuePut(uwb_txQueue, &msg, 0, 100) != osOK) {

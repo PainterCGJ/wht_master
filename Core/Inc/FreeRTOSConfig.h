@@ -168,6 +168,9 @@ standard names. */
 #define configCHECK_FOR_STACK_OVERFLOW 2
 #define configUSE_MALLOC_FAILED_HOOK 1
 
+/* 关闭时间片轮转 - 相同优先级的任务不会轮转执行 */
+#define configUSE_TIME_SLICING                   0
+
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */
