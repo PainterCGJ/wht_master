@@ -199,6 +199,10 @@ class MasterServer {
     
     // Calculate total conduction number for sync interval
     uint16_t calculateTotalConductionNum() const;
+    
+    // Build slave configurations for unified TDMA sync message
+    void buildSlaveConfigsForSync(Master2Slave::SyncMessage& syncMsg, 
+                                  const DeviceManager& dm);
 
     // Register message handlers
     void registerMessageHandler(uint8_t messageId,

@@ -987,32 +987,104 @@ void MasterServer::processTimeSync() {
 
     uint32_t currentTime = getCurrentTimestampMs();
 
-    // 计算基于导电周期的同步间隔: Total Conduction Num × CONDUCTION_INTERVAL
-    uint16_t totalConductionNum = calculateTotalConductionNum();
-    uint32_t cycleSyncIntervalMs = totalConductionNum * CONDUCTION_INTERVAL;
-
-    if (cycleSyncIntervalMs == 0) {
-        cycleSyncIntervalMs = 1000;
+    // 计算TDMA周期长度: 延迟启动时间 + 总时隙数量 × interval + 额外延迟
+    uint32_t startupDelayMs = 100;  // 启动延迟时间（与startTime设置保持一致）
+    uint32_t extraDelayMs = 500;     // 额外的安全延迟时间
+    
+    // 获取已连接的从机数量（即时隙数量）
+    auto connectedSlaves = dm.getConnectedSlavesInConfigOrder();
+    uint32_t totalTimeSlots = static_cast<uint32_t>(connectedSlaves.size());
+    
+    // 获取有效的采集间隔
+    uint32_t intervalMs = static_cast<uint32_t>(dm.getEffectiveInterval());
+    
+    // 计算完整的TDMA周期时间D
+    uint32_t tdmaCycleMs = startupDelayMs + (totalTimeSlots * intervalMs) + extraDelayMs;
+    
+    // 最小周期保护，避免过于频繁的同步
+    if (tdmaCycleMs < 500) {
+        tdmaCycleMs = 500;  // 最小500ms周期
     }
 
-    // 检查是否需要发送时间同步消息（基于导电周期）
-    if (currentTime - lastSyncTime >= cycleSyncIntervalMs) {
-        // 创建同步消息
+    // 检查是否需要发送TDMA同步消息
+    if (currentTime - lastSyncTime >= tdmaCycleMs) {
+        // 创建统一的TDMA同步消息
         auto syncCmd = std::make_unique<Master2Slave::SyncMessage>();
-        // 将当前时间转换为微秒时间戳
+        
+        // 设置基本字段
+        syncCmd->mode = dm.getCurrentMode();  // 0：导通检测, 1：阻值检测, 2：卡钉检测
+        syncCmd->interval = dm.getEffectiveInterval();  // 采集间隔（ms）
+        
+        // 当前时间和启动时间（微秒）
         uint64_t timestampUs = hal_hptimer_get_us();
-        syncCmd->timestamp = timestampUs;
+        syncCmd->currentTime = timestampUs;
+        
+        // 启动时间设置为当前时间加上启动延迟时间
+        syncCmd->startTime = timestampUs + (startupDelayMs * 1000);  // 启动延迟，转换为微秒
+        
+        // 构建从机配置列表
+        buildSlaveConfigsForSync(*syncCmd, dm);
 
-        // 广播发送同步消息（使用0xFFFFFFFF作为广播地址）
+        // 广播发送统一同步消息（使用0xFFFFFFFF作为广播地址）
         sendCommandToSlave(0xFFFFFFFF, std::move(syncCmd));
 
         lastSyncTime = currentTime;
 
         elog_v(TAG,
-               "Broadcasted sync message for time synchronization "
-               "(timestamp=%lu us, cycle_interval=%lu ms, total_conduction=%d)",
-               (unsigned long)timestampUs, (unsigned long)cycleSyncIntervalMs, totalConductionNum);
+               "Broadcasted TDMA sync message (mode=%d, interval=%d ms, "
+               "current_time=%lu us, start_time=%lu us, slaves=%d, cycle=%lu ms)",
+               dm.getCurrentMode(), dm.getEffectiveInterval(),
+               (unsigned long)timestampUs, (unsigned long)(timestampUs + startupDelayMs * 1000),
+               static_cast<int>(totalTimeSlots), (unsigned long)tdmaCycleMs);
     }
+}
+
+void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage& syncMsg, 
+                                            const DeviceManager& dm) {
+    syncMsg.slaveConfigs.clear();
+    
+    // 获取按配置顺序排列的已连接从机
+    auto connectedSlaves = dm.getConnectedSlavesInConfigOrder();
+    
+    uint8_t timeSlot = 0;  // 时隙从0开始分配
+    
+    for (uint32_t slaveId : connectedSlaves) {
+        if (!dm.hasSlaveConfig(slaveId)) {
+            elog_w(TAG, "Slave 0x%08X connected but no config found, skipping", slaveId);
+            continue;
+        }
+        
+        auto slaveConfig = dm.getSlaveConfig(slaveId);
+        Master2Slave::SyncMessage::SlaveConfig config;
+        
+        config.id = slaveId;
+        config.timeSlot = timeSlot++;  // 按顺序分配时隙，从0开始
+        
+        // 根据当前模式设置测试数量
+        switch (dm.getCurrentMode()) {
+            case 0:  // 导通检测
+                config.testCount = slaveConfig.conductionNum;
+                break;
+            case 1:  // 阻值检测
+                config.testCount = slaveConfig.resistanceNum;
+                break;
+            case 2:  // 卡钉检测
+                config.testCount = slaveConfig.clipMode;  // 使用clipMode作为卡钉数量
+                break;
+            default:
+                config.testCount = 0;
+                elog_w(TAG, "Unknown mode %d for slave 0x%08X", dm.getCurrentMode(), slaveId);
+                break;
+        }
+        
+        syncMsg.slaveConfigs.push_back(config);
+        
+        elog_v(TAG, "Added slave 0x%08X to sync: timeSlot=%d, testCount=%d (mode=%d)",
+               slaveId, config.timeSlot, config.testCount, dm.getCurrentMode());
+    }
+    
+    elog_v(TAG, "Built sync message with %d slave configurations", 
+           static_cast<int>(syncMsg.slaveConfigs.size()));
 }
 
 bool MasterServer::ensureAllSlavesTimeSynced() {

@@ -16,16 +16,34 @@ enum class SlaveRunMode : uint8_t {
 
 class SyncMessage : public Message {
    public:
-    uint64_t timestamp;    // 时间戳（us）
+    // TDMA unified sync message structure
+    uint8_t mode;            // 0：导通检测, 1：阻值检测, 2：卡钉检测
+    uint8_t interval;        // 采集间隔（ms）
+    uint64_t currentTime;    // 当前时间戳（微秒）
+    uint64_t startTime;      // 启动时间戳（微秒）
+    
+    // 从机配置信息
+    struct SlaveConfig {
+        uint32_t id;         // 4字节从机ID
+        uint8_t timeSlot;    // 为从节点分配的时隙
+        uint8_t testCount;   // 导通检测数量/阻值检测数量/卡钉检测数量（根据mode决定含义）
+        
+        SlaveConfig() : id(0), timeSlot(0), testCount(0) {}
+        SlaveConfig(uint32_t slaveId, uint8_t slot, uint8_t count) 
+            : id(slaveId), timeSlot(slot), testCount(count) {}
+    };
+    
+    std::vector<SlaveConfig> slaveConfigs;  // 所有从机的配置
 
     std::vector<uint8_t> serialize() const override;
     bool deserialize(const std::vector<uint8_t>& data) override;
     uint8_t getMessageId() const override {
         return static_cast<uint8_t>(Master2SlaveMessageId::SYNC_MSG);
     }
-    const char* getMessageTypeName() const override { return "Sync"; }
+    const char* getMessageTypeName() const override { return "TDMA Sync"; }
 };
 
+// DEPRECATED: This message is replaced by unified TDMA SyncMessage
 class SetTimeMessage : public Message {
    public:
     uint64_t timestamp;    // 时间戳（us）
@@ -35,9 +53,10 @@ class SetTimeMessage : public Message {
     uint8_t getMessageId() const override {
         return static_cast<uint8_t>(Master2SlaveMessageId::SET_TIME_MSG);
     }
-    const char* getMessageTypeName() const override { return "Set Time"; }
+    const char* getMessageTypeName() const override { return "Set Time (DEPRECATED)"; }
 };
 
+// DEPRECATED: This message is replaced by unified TDMA SyncMessage
 class SlaveControlMessage : public Message {
    public:
     SlaveRunMode mode;     // 运行模式
@@ -50,9 +69,10 @@ class SlaveControlMessage : public Message {
     uint8_t getMessageId() const override {
         return static_cast<uint8_t>(Master2SlaveMessageId::SLAVE_CONTROL_MSG);
     }
-    const char* getMessageTypeName() const override { return "Slave Control"; }
+    const char* getMessageTypeName() const override { return "Slave Control (DEPRECATED)"; }
 };
 
+// DEPRECATED: This message is replaced by unified TDMA SyncMessage
 class ConductionConfigMessage : public Message {
    public:
     uint8_t timeSlot;
@@ -67,10 +87,11 @@ class ConductionConfigMessage : public Message {
         return static_cast<uint8_t>(Master2SlaveMessageId::CONDUCTION_CFG_MSG);
     }
     const char* getMessageTypeName() const override {
-        return "Conduction Config";
+        return "Conduction Config (DEPRECATED)";
     }
 };
 
+// DEPRECATED: This message is replaced by unified TDMA SyncMessage
 class ResistanceConfigMessage : public Message {
    public:
     uint8_t timeSlot;
@@ -85,10 +106,11 @@ class ResistanceConfigMessage : public Message {
         return static_cast<uint8_t>(Master2SlaveMessageId::RESISTANCE_CFG_MSG);
     }
     const char* getMessageTypeName() const override {
-        return "Resistance Config";
+        return "Resistance Config (DEPRECATED)";
     }
 };
 
+// DEPRECATED: This message is replaced by unified TDMA SyncMessage
 class ClipConfigMessage : public Message {
    public:
     uint8_t interval;
@@ -100,7 +122,7 @@ class ClipConfigMessage : public Message {
     uint8_t getMessageId() const override {
         return static_cast<uint8_t>(Master2SlaveMessageId::CLIP_CFG_MSG);
     }
-    const char* getMessageTypeName() const override { return "Clip Config"; }
+    const char* getMessageTypeName() const override { return "Clip Config (DEPRECATED)"; }
 };
 
 class RstMessage : public Message {

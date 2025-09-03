@@ -83,139 +83,19 @@ void ModeConfigHandler::executeActions(const Message &message,
     // Set the mode in device manager
     server->getDeviceManager().setCurrentMode(modeMsg->mode);
 
-    elog_v("ModeConfigHandler", "Mode set to %d",
+    elog_i("ModeConfigHandler", "Mode set to %d - configuration will be distributed via TDMA sync messages",
            static_cast<int>(modeMsg->mode));
 
-    // Get connected slaves and send configuration based on mode
-    auto connectedSlaves =
-        server->getDeviceManager().getConnectedSlavesInConfigOrder();
-
-    if (connectedSlaves.empty()) {
-        elog_w("ModeConfigHandler",
-               "No connected slaves found, sending immediate success response");
-        // If no slaves, send immediate success response
-        auto response =
-            std::make_unique<Master2Backend::ModeConfigResponseMessage>();
-        response->status = 0;    // Success
-        response->mode = modeMsg->mode;
-        server->sendResponseToBackend(std::move(response));
-        return;
-    }
-
-    // Create a copy of the original message for tracking
-    auto originalMessageCopy =
-        std::make_unique<Backend2Master::ModeConfigMessage>();
-    originalMessageCopy->mode = modeMsg->mode;
-
-    // Start configuration tracking - response will be sent when all slaves
-    // respond
-    server->addPendingBackendResponse(
-        static_cast<uint8_t>(Backend2MasterMessageId::MODE_CFG_MSG),
-        std::move(originalMessageCopy), connectedSlaves);
-
-    // Calculate totalConductionNum and totalResistanceNum for all slaves
-    uint16_t totalConductionNum = 0;
-    uint16_t totalResistanceNum = 0;
-
-    for (uint32_t slaveId : connectedSlaves) {
-        if (server->getDeviceManager().hasSlaveConfig(slaveId)) {
-            const auto &slaveConfig =
-                server->getDeviceManager().getSlaveConfig(slaveId);
-            totalConductionNum += slaveConfig.conductionNum;
-            totalResistanceNum += slaveConfig.resistanceNum;
-        }
-    }
-
-    // Calculate startConductionNum and startResistanceNum for each slave
-    uint16_t currentConductionStart = 0;
-    uint16_t currentResistanceStart = 0;
-
-    for (uint32_t slaveId : connectedSlaves) {
-        if (server->getDeviceManager().hasSlaveConfig(slaveId)) {
-            const auto &slaveConfig =
-                server->getDeviceManager().getSlaveConfig(slaveId);
-
-            switch (modeMsg->mode) {
-                case 0:    // Conduction mode
-                    if (slaveConfig.conductionNum > 0) {
-                        auto condCmd = std::make_unique<
-                            Master2Slave::ConductionConfigMessage>();
-                        condCmd->timeSlot = 1;
-                        condCmd->interval = CONDUCTION_INTERVAL;    // 20ms default
-                        condCmd->totalConductionNum = totalConductionNum;
-                        condCmd->startConductionNum = currentConductionStart;
-                        condCmd->conductionNum = slaveConfig.conductionNum;
-
-                        // Use retry mechanism for important configuration
-                        // commands
-                        server->sendCommandToSlaveWithRetry(
-                            slaveId, std::move(condCmd), 3);
-                        elog_v("ModeConfigHandler",
-                               "Sent conduction config to slave 0x%08X "
-                               "(total=%d, start=%d, num=%d)",
-                               slaveId, totalConductionNum,
-                               currentConductionStart,
-                               slaveConfig.conductionNum);
-
-                        // Update start position for next slave
-                        currentConductionStart += slaveConfig.conductionNum;
-                    }
-                    break;
-
-                case 1:    // Resistance mode
-                    if (slaveConfig.resistanceNum > 0) {
-                        auto resCmd = std::make_unique<
-                            Master2Slave::ResistanceConfigMessage>();
-                        resCmd->timeSlot = 1;
-                        resCmd->interval = 100;    // 100ms default
-                        resCmd->totalNum = totalResistanceNum;
-                        resCmd->startNum = currentResistanceStart;
-                        resCmd->num = slaveConfig.resistanceNum;
-
-                        server->sendCommandToSlaveWithRetry(
-                            slaveId, std::move(resCmd), 3);
-                        elog_v("ModeConfigHandler",
-                               "Sent resistance config to slave 0x%08X "
-                               "(total=%d, start=%d, num=%d)",
-                               slaveId, totalResistanceNum,
-                               currentResistanceStart,
-                               slaveConfig.resistanceNum);
-
-                        // Update start position for next slave
-                        currentResistanceStart += slaveConfig.resistanceNum;
-                    }
-                    break;
-
-                case 2:    // Clip mode
-                {
-                    auto clipCmd =
-                        std::make_unique<Master2Slave::ClipConfigMessage>();
-                    clipCmd->interval = 100;    // 100ms default
-                    clipCmd->mode = slaveConfig.clipMode;
-                    clipCmd->clipPin = slaveConfig.clipStatus;
-
-                    server->sendCommandToSlaveWithRetry(slaveId,
-                                                        std::move(clipCmd), 3);
-                    elog_v("ModeConfigHandler",
-                           "Sent clip config to slave 0x%08X", slaveId);
-                } break;
-
-                default:
-                    elog_w("ModeConfigHandler", "Unknown mode: %d",
-                           static_cast<int>(modeMsg->mode));
-                    break;
-            }
-        } else {
-            elog_w("ModeConfigHandler",
-                   "No configuration found for slave 0x%08X", slaveId);
-        }
-    }
-
-    elog_v("ModeConfigHandler",
-           "Mode configuration commands sent to %d slaves, waiting for "
-           "responses (totalConduction=%d, totalResistance=%d)",
-           static_cast<int>(connectedSlaves.size()), totalConductionNum,
-           totalResistanceNum);
+    // With TDMA unified sync messages, we no longer send individual config messages
+    // The configuration will be distributed automatically through periodic sync messages
+    
+    // Send immediate success response since configuration is handled by sync messages
+    auto response = std::make_unique<Master2Backend::ModeConfigResponseMessage>();
+    response->status = 0;    // Success
+    response->mode = modeMsg->mode;
+    server->sendResponseToBackend(std::move(response));
+    
+    elog_v("ModeConfigHandler", "Mode configuration completed - slaves will receive config via next sync message");
 }
 
 // Reset Message Handler

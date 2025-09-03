@@ -43,19 +43,33 @@ The protocol is composed of Frames, Packets, and Messages.
 | SHORT_ID_ASSIGN_MSG | 0x50 | 分配短ID |
 
 
-### Sync Message
+### Sync Message (TDMA Unified)
+| Data | Type | Length | Description |
+| --- | --- | --- | --- |
+| Mode | u8 | 1 Byte | 0：导通检测<br/>1：阻值检测<br/>2：卡钉检测 |
+| Interval | u8 | 1 Byte | 采集间隔（ms） |
+| Current Time | uint64_t | 8 Byte | 当前时间戳（微秒） |
+| Start Time | uint64_t | 8 Byte | 启动时间戳（微秒） |
+| Slave 1 ID | u8 | 4 Byte | 4个字节的从机ID |
+| Slave 1 Time Slot | u8 | 1 Byte | 为从节点分配的时隙（从0开始） |
+| Slave 1 Test Count | u8 | 1 Byte | 导通检测数量/阻值检测数量/卡钉检测数量 |
+| Slave 2 ID | u8 | 4 Byte | 4个字节的从机ID |
+| Slave 2 Time Slot | u8 | 1 Byte | 为从节点分配的时隙（从0开始） |
+| Slave 2 Test Count | u8 | 1 Byte | 导通检测数量/阻值检测数量/卡钉检测数量 |
+| ... | ... | ... | 重复每个从机的配置 |
+
+**注意**: 这个统一的同步消息合并了原来的Sync Message、Set Time Message、Slave Control Message和Config Message的功能，实现严格的时分多址(TDMA)设计。主机定时广播此消息，从机根据消息中的信息进行时间校准、启动数据采集和配置更新。
+
+
+### Set Time Message (DEPRECATED)
+**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
 | Time Stamp | uint64_t | 8 Byte | 时间戳（微秒） |
 
 
-### Set Time Message
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Time Stamp | uint64_t | 8 Byte | 时间戳（微秒） |
-
-
-### Slave Control Message
+### Slave Control Message (DEPRECATED)
+**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
 | Mode | u8 | 1 Byte | 0：导通检测<br/>1：阻值检测<br/>2：卡钉检测 |
@@ -63,7 +77,8 @@ The protocol is composed of Frames, Packets, and Messages.
 | Start Time | uint64_t | 8 Byte | 启动时间戳（微秒），用于同步启动 |
 
 
-### Conduction Config Message
+### Conduction Config Message (DEPRECATED)
+**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
 | Time Slot | u8 | 1 Byte | 为从节点分配的时隙 |
@@ -73,7 +88,8 @@ The protocol is composed of Frames, Packets, and Messages.
 | Conduction Num | u16 | 2 Byte | 导通检测数量 |
 
 
-### Resistance Config Message
+### Resistance Config Message (DEPRECATED)
+**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
 | Time Slot | u8 | 1 Byte | 为从节点分配的时隙 |
@@ -83,7 +99,8 @@ The protocol is composed of Frames, Packets, and Messages.
 | Num | u16 | 2 Byte | 阻值检测数量 |
 
 
-### Clip Config Message
+### Clip Config Message (DEPRECATED)
+**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
 | Interval | u8 | 1 Byte | 采集间隔，单位 ms |

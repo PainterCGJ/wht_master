@@ -798,7 +798,7 @@ class CX310 {
     bool init() {
         __init();
         init_success &=
-            set_channel(PARAM_CHANNEL_NUMBER_9);    // channel 5 // channel 5
+            set_channel(PARAM_CHANNEL_NUMBER_5);    // channel 5 // channel 5
         init_success &=
             set_phr_mode(PARAM_PHYDATARATE_DRHM_HR);    // PHR mode 4
         init_success &= set_sfd_id(2);                  // SFD ID 3 // SFD ID 3
