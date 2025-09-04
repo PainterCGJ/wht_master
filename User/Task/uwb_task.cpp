@@ -25,7 +25,8 @@ typedef enum
 {
     UWB_MSG_TYPE_SEND_DATA = 1, // 应用任务发送数据
     UWB_MSG_TYPE_CONFIG,        // 配置信息
-    UWB_MSG_TYPE_SET_MODE       // 设置工作模式
+    UWB_MSG_TYPE_SET_MODE,      // 设置工作模式
+    UWB_MSG_TYPE_SET_CHANNEL    // 设置信道
 } uwb_msg_type_t;
 
 // UWB发送消息结构体
@@ -224,13 +225,44 @@ static void uwb_comm_task(void *argument)
             // 从队列获取发送消息
             if (osMessageQueueGet(uwb_txQueue, &tx_msg, NULL, 0) == osOK)
             {
-                // 发送UWB数据
-                std::vector<uint8_t> tx_data(tx_msg.data, tx_msg.data + tx_msg.data_len);
-                elog_i(TAG, "tx begin");
-                uwb.update();
-                uwb.data_transmit(tx_data);
-                // 发送完成后重新启动接收
-                // uwb.set_recv_mode();
+                switch (tx_msg.type)
+                {
+                case UWB_MSG_TYPE_SEND_DATA:
+                    // 发送UWB数据
+                    {
+                        std::vector<uint8_t> tx_data(tx_msg.data, tx_msg.data + tx_msg.data_len);
+                        elog_i(TAG, "tx begin");
+                        uwb.update();
+                        uwb.data_transmit(tx_data);
+                        // 发送完成后重新启动接收
+                        // uwb.set_recv_mode();
+                    }
+                    break;
+                case UWB_MSG_TYPE_SET_CHANNEL:
+                    // 设置UWB信道
+                    if (tx_msg.data_len >= 1)
+                    {
+                        uint8_t channel = tx_msg.data[0];
+                        elog_i(TAG, "Setting UWB channel to %d", channel);
+                        uwb.update();
+                        if (uwb.set_channel(channel))
+                        {
+                            elog_i(TAG, "UWB channel set to %d successfully", channel);
+                        }
+                        else
+                        {
+                            elog_e(TAG, "Failed to set UWB channel to %d", channel);
+                        }
+                        // 重新启动接收模式
+                        uwb.set_recv_mode();
+                    }
+                    break;
+                case UWB_MSG_TYPE_CONFIG:
+                case UWB_MSG_TYPE_SET_MODE:
+                default:
+                    elog_w(TAG, "Unhandled message type: %d", tx_msg.type);
+                    break;
+                }
             }
         }
 
@@ -389,6 +421,32 @@ int UWB_Reconfigure(void)
     uwb_tx_msg_t msg;
     msg.type = UWB_MSG_TYPE_CONFIG;
     msg.data_len = 0;
+
+    if (osMessageQueuePut(uwb_txQueue, &msg, 0, 100) != osOK)
+    {
+        return -1; // 队列满或超时
+    }
+
+    // 配置消息放入队列后，释放信号量通知通信任务
+    osSemaphoreRelease(uwb_txSemaphore);
+
+    return 0; // 成功
+}
+
+// API函数：设置UWB信道
+int UWB_SetChannel(uint8_t channel)
+{
+    // 验证信道范围 (5-10)
+    if (channel < 5 || channel > 10)
+    {
+        return -1; // 参数错误
+    }
+
+    uwb_tx_msg_t msg;
+    msg.type = UWB_MSG_TYPE_SET_CHANNEL;
+    msg.data_len = 1;
+    msg.data[0] = channel;
+    msg.delay_ms = 0;
 
     if (osMessageQueuePut(uwb_txQueue, &msg, 0, 100) != osOK)
     {

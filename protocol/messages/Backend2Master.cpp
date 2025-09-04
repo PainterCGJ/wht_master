@@ -172,5 +172,23 @@ bool ClearDeviceListMessage::deserialize(const std::vector<uint8_t> &data) {
     return true;
 }
 
+// SetUwbChannelMessage 实现
+std::vector<uint8_t> SetUwbChannelMessage::serialize() const {
+    return {channel};
+}
+
+bool SetUwbChannelMessage::deserialize(const std::vector<uint8_t> &data) {
+    if (data.size() < 1)
+        return false;
+    channel = data[0];
+    
+    // 验证信道范围 (5-10)
+    if (channel < 5 || channel > 10) {
+        return false;
+    }
+    
+    return true;
+}
+
 } // namespace Backend2Master
 } // namespace WhtsProtocol

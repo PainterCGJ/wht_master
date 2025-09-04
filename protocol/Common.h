@@ -40,10 +40,11 @@ enum class Backend2MasterMessageId : uint8_t {
     MODE_CFG_MSG = 0x01,
     SLAVE_RST_MSG = 0x02,
     CTRL_MSG = 0x03,
-    INTERVAL_CFG_MSG = 0x06,
+    INTERVAL_CFG_MSG = 0x04,
     PING_CTRL_MSG = 0x10,
     DEVICE_LIST_REQ_MSG = 0x11,
-    CLEAR_DEVICE_LIST_MSG = 0x12
+    CLEAR_DEVICE_LIST_MSG = 0x12,
+    SET_UWB_CHAN_MSG = 0x13
 };
 
 // Master2Backend Message ID 枚举
@@ -54,7 +55,8 @@ enum class Master2BackendMessageId : uint8_t {
     CTRL_RSP_MSG = 0x03,
     PING_RES_MSG = 0x04,
     DEVICE_LIST_RSP_MSG = 0x05,
-    INTERVAL_CFG_RSP_MSG = 0x06
+    INTERVAL_CFG_RSP_MSG = 0x06,
+    SET_UWB_CHAN_RSP_MSG = 0x13
 };
 
 // Slave2Backend Message ID 枚举

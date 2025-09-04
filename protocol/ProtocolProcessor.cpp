@@ -226,6 +226,9 @@ std::unique_ptr<Message> ProtocolProcessor::createMessage(PacketId packetId,
                 case Backend2MasterMessageId::CLEAR_DEVICE_LIST_MSG:
                     return std::make_unique<
                         Backend2Master::ClearDeviceListMessage>();
+                case Backend2MasterMessageId::SET_UWB_CHAN_MSG:
+                    return std::make_unique<
+                        Backend2Master::SetUwbChannelMessage>();
             }
             break;
 
@@ -252,6 +255,9 @@ std::unique_ptr<Message> ProtocolProcessor::createMessage(PacketId packetId,
                 case Master2BackendMessageId::INTERVAL_CFG_RSP_MSG:
                     return std::make_unique<
                         Master2Backend::IntervalConfigResponseMessage>();
+                case Master2BackendMessageId::SET_UWB_CHAN_RSP_MSG:
+                    return std::make_unique<
+                        Master2Backend::SetUwbChannelResponseMessage>();
             }
             break;
 

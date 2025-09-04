@@ -3,6 +3,7 @@
 #include "MasterServer.h"
 #include "elog.h"
 #include "master_app.h"
+#include "uwb_task.h"
 
 // Slave Configuration Message Handler
 std::unique_ptr<Message> SlaveConfigHandler::processMessage(const Message &message, MasterServer *server)
@@ -391,4 +392,46 @@ void ClearDeviceListHandler::executeActions(const Message &message, MasterServer
     server->getDeviceManager().clearAllDevices();
 
     elog_i("ClearDeviceListHandler", "All device information cleared successfully");
+}
+
+// Set UWB Channel Handler
+std::unique_ptr<Message> SetUwbChannelHandler::processMessage(const Message &message, MasterServer *server)
+{
+    const auto *channelMsg = dynamic_cast<const Backend2Master::SetUwbChannelMessage *>(&message);
+    if (!channelMsg)
+        return nullptr;
+
+    elog_i("SetUwbChannelHandler", "Processing set UWB channel request - Channel: %d",
+           static_cast<int>(channelMsg->channel));
+
+    // 创建响应消息
+    auto response = std::make_unique<Master2Backend::SetUwbChannelResponseMessage>();
+    response->channel = channelMsg->channel;
+
+    // 尝试设置UWB信道
+    int result = UWB_SetChannel(channelMsg->channel);
+
+    if (result == 0)
+    {
+        response->status = 0; // 成功
+        elog_i("SetUwbChannelHandler", "UWB channel set to %d successfully", static_cast<int>(channelMsg->channel));
+    }
+    else
+    {
+        response->status = 1; // 失败
+        elog_e("SetUwbChannelHandler", "Failed to set UWB channel to %d, error: %d",
+               static_cast<int>(channelMsg->channel), result);
+    }
+
+    return std::move(response);
+}
+
+void SetUwbChannelHandler::executeActions(const Message &message, MasterServer *server)
+{
+    const auto *channelMsg = dynamic_cast<const Backend2Master::SetUwbChannelMessage *>(&message);
+    if (!channelMsg)
+        return;
+
+    elog_d("SetUwbChannelHandler", "UWB channel setting action completed for channel %d",
+           static_cast<int>(channelMsg->channel));
 }

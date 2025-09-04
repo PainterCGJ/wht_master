@@ -141,6 +141,21 @@ class ClearDeviceListMessage : public Message {
     }
 };
 
+class SetUwbChannelMessage : public Message {
+   public:
+    uint8_t channel;  // 5-10: UWB channel number
+
+    std::vector<uint8_t> serialize() const override;
+    bool deserialize(const std::vector<uint8_t> &data) override;
+    uint8_t getMessageId() const override {
+        return static_cast<uint8_t>(
+            Backend2MasterMessageId::SET_UWB_CHAN_MSG);
+    }
+    const char* getMessageTypeName() const override {
+        return "Set UWB Channel";
+    }
+};
+
 }    // namespace Backend2Master
 }    // namespace WhtsProtocol
 

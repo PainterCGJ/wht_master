@@ -174,3 +174,21 @@ class ClearDeviceListHandler : public IMessageHandler
     ClearDeviceListHandler(const ClearDeviceListHandler &) = delete;
     ClearDeviceListHandler &operator=(const ClearDeviceListHandler &) = delete;
 };
+
+// Set UWB Channel Message Handler
+class SetUwbChannelHandler : public IMessageHandler
+{
+  public:
+    static SetUwbChannelHandler &getInstance()
+    {
+        static SetUwbChannelHandler instance;
+        return instance;
+    }
+    std::unique_ptr<Message> processMessage(const Message &message, MasterServer *server) override;
+    void executeActions(const Message &message, MasterServer *server) override;
+
+  private:
+    SetUwbChannelHandler() = default;
+    SetUwbChannelHandler(const SetUwbChannelHandler &) = delete;
+    SetUwbChannelHandler &operator=(const SetUwbChannelHandler &) = delete;
+};

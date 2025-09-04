@@ -205,5 +205,19 @@ bool DeviceListResponseMessage::deserialize(const std::vector<uint8_t> &data) {
     return true;
 }
 
+// SetUwbChannelResponseMessage 实现
+std::vector<uint8_t> SetUwbChannelResponseMessage::serialize() const {
+    return {status, channel};
+}
+
+bool SetUwbChannelResponseMessage::deserialize(const std::vector<uint8_t> &data) {
+    if (data.size() < 2)
+        return false;
+    
+    status = data[0];
+    channel = data[1];
+    return true;
+}
+
 } // namespace Master2Backend
 } // namespace WhtsProtocol

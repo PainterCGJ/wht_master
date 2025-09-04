@@ -43,6 +43,8 @@ void MasterServer::initializeMessageHandlers()
         &IntervalConfigHandler::getInstance();
     messageHandlers_[static_cast<uint8_t>(Backend2MasterMessageId::CLEAR_DEVICE_LIST_MSG)] =
         &ClearDeviceListHandler::getInstance();
+    messageHandlers_[static_cast<uint8_t>(Backend2MasterMessageId::SET_UWB_CHAN_MSG)] =
+        &SetUwbChannelHandler::getInstance();
 }
 
 void MasterServer::initializeSlave2MasterHandlers()

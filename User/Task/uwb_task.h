@@ -51,6 +51,11 @@ extern "C"
     // 返回：0 - 成功, -1 - 队列满或超时
     int UWB_Reconfigure(void);
 
+    // API函数：设置UWB信道
+    // 参数：channel - 信道号 (5-10)
+    // 返回：0 - 成功, -1 - 参数错误, -2 - 设置失败
+    int UWB_SetChannel(uint8_t channel);
+
 #ifdef __cplusplus
 }
 #endif

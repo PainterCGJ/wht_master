@@ -141,6 +141,22 @@ class DeviceListResponseMessage : public Message {
     }
 };
 
+class SetUwbChannelResponseMessage : public Message {
+  public:
+    uint8_t status;   // 0: Success, 1: Failure
+    uint8_t channel;  // Echo back the channel that was set
+
+    std::vector<uint8_t> serialize() const override;
+    bool deserialize(const std::vector<uint8_t> &data) override;
+    uint8_t getMessageId() const override {
+        return static_cast<uint8_t>(
+            Master2BackendMessageId::SET_UWB_CHAN_RSP_MSG);
+    }
+    const char* getMessageTypeName() const override {
+        return "Set UWB Channel Response";
+    }
+};
+
 } // namespace Master2Backend
 } // namespace WhtsProtocol
 
