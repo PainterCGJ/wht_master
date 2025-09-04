@@ -622,14 +622,8 @@ void MasterServer::handleSlaveConfigResponse(uint32_t slaveId, uint8_t messageTy
         switch (pendingResponse.messageType)
         {
         case static_cast<uint8_t>(Backend2MasterMessageId::MODE_CFG_MSG):
-            // Mode config responses can be conduction, resistance, or clip
-            // config responses
-            if (messageType == static_cast<uint8_t>(Slave2MasterMessageId::CONDUCTION_CFG_RSP_MSG) ||
-                messageType == static_cast<uint8_t>(Slave2MasterMessageId::RESISTANCE_CFG_RSP_MSG) ||
-                messageType == static_cast<uint8_t>(Slave2MasterMessageId::CLIP_CFG_RSP_MSG))
-            {
-                isMatch = true;
-            }
+            // Mode config is now handled via TDMA sync messages - no specific response expected
+            // This case is kept for compatibility but should not receive responses anymore
             break;
         case static_cast<uint8_t>(Backend2MasterMessageId::SLAVE_RST_MSG):
             if (messageType == static_cast<uint8_t>(Slave2MasterMessageId::RST_RSP_MSG))

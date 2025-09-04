@@ -33,12 +33,6 @@ The protocol is composed of Frames, Packets, and Messages.
 | Message ID | Value | 描述 |
 | --- | --- | --- |
 | SYNC_MSG | 0x00 | 同步 |
-| SET_TIME_MSG | 0x01 | 设置时间 |
-| SLAVE_CONTROL_MSG | 0x02 | 从机控制 |
-| CONDUCTION_CFG_MSG | 0x10 | 配置导通 |
-| RESISTANCE_CFG_MSG | 0x11 | 配置阻值 |
-| CLIP_CFG_MSG | 0x12 | 配置卡钉 |
-| RST_MSG | 0x30 | 复位 |
 | PING_REQ_MSG | 0x40 | Ping请求消息（Master发送给Slave） |
 | SHORT_ID_ASSIGN_MSG | 0x50 | 分配短ID |
 
@@ -63,60 +57,6 @@ The protocol is composed of Frames, Packets, and Messages.
 **注意**: 这个统一的同步消息合并了原来的Sync Message、Set Time Message、Slave Control Message和Config Message的功能，实现严格的时分多址(TDMA)设计。主机定时广播此消息，从机根据消息中的信息进行时间校准、启动数据采集和配置更新。
 
 
-### Set Time Message (DEPRECATED)
-**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Time Stamp | uint64_t | 8 Byte | 时间戳（微秒） |
-
-
-### Slave Control Message (DEPRECATED)
-**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Mode | u8 | 1 Byte | 0：导通检测<br/>1：阻值检测<br/>2：卡钉检测 |
-| Enable | u8 | 1 Byte | 1：启动<br/>0：停止 |
-| Start Time | uint64_t | 8 Byte | 启动时间戳（微秒），用于同步启动 |
-
-
-### Conduction Config Message (DEPRECATED)
-**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Time Slot | u8 | 1 Byte | 为从节点分配的时隙 |
-| Interval | u8 | 1 Byte | 采集间隔，单位 ms |
-| Total Conduction Num | u16 | 2 Byte | 系统中总导通检测的数量 |
-| Start Conduction Num | u16 | 2 Byte | 起始导通数量 |
-| Conduction Num | u16 | 2 Byte | 导通检测数量 |
-
-
-### Resistance Config Message (DEPRECATED)
-**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Time Slot | u8 | 1 Byte | 为从节点分配的时隙 |
-| Interval | u8 | 1 Byte | 采集间隔，单位 ms |
-| Total Num | u16 | 2 Byte | 系统中总阻值检测的数量 |
-| Start Num | u16 | 2 Byte | 起始阻值数量 |
-| Num | u16 | 2 Byte | 阻值检测数量 |
-
-
-### Clip Config Message (DEPRECATED)
-**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Interval | u8 | 1 Byte | 采集间隔，单位 ms |
-| mode | u8 | 1 Byte | 0：非自锁<br/>1：自锁 |
-| Clip Pin | u16 | 2 Byte | 16 个卡钉激活信息，激活的位置 1，未激活的位置 0 |
-
-
-### Rst Message (DEPRECATED)
-**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。复位功能现在通过同步消息中的Reset标志位实现。
-
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Lock Status | u8 | 1 Byte | 0：解锁<br/>1：上锁 |
-| Clip Led | u16 | 2 Byte | 卡钉灯位初始化信息 |
 
 
 ### Ping Req Message
@@ -142,59 +82,12 @@ The protocol is composed of Frames, Packets, and Messages.
 
 | Message ID | Value | 描述 |
 | --- | --- | --- |
-| SET_TIME_RSP_MSG | 0x01 | 设置时间响应 |
-| SLAVE_CONTROL_RSP_MSG | 0x02 | 从机控制响应 |
-| CONDUCTION_CFG_RSP_MSG | 0x10 | 导通配置响应 |
-| RESISTANCE_CFG_RSP_MSG | 0x11 | 阻值配置响应 |
-| CLIP_CFG_RSP_MSG | 0x22 | 卡钉配置响应 |
 | RST_RSP_MSG | 0x30 | 复位响应 |
 | PING_RSP_MSG | 0x41 | Ping响应消息 |
 | ANNOUNCE_MSG | 0x50 | 设备公告消息 |
 | SHORT_ID_CONFIRM_MSG | 0x51 | 短ID确认消息 |
 
 
-### Set Time Response Message
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Status | u8 | 1 Byte | 状态码 |
-| Time Stamp | uint64_t | 8 Byte | 时间戳（微秒） |
-
-
-### Slave Control Response Message
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Status | u8 | 1 Byte | 状态码 |
-
-
-### Conduction Config Response Message
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Status | u8 | 1 Byte | 状态码 |
-| Time Slot | u8 | 1 Byte | 为从节点分配的时隙 |
-| Interval | u8 | 1 Byte | 采集间隔，单位 ms |
-| Total Conduction Num | u16 | 2 Byte | 系统中总导通检测的数量 |
-| Start Conduction Num | u16 | 2 Byte | 起始导通数量 |
-| Conduction Num | u16 | 2 Byte | 导通检测数量 |
-
-
-### Resistance Config Response Message
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Status | u8 | 1 Byte | 状态码 |
-| Time Slot | u8 | 1 Byte | 为从节点分配的时隙 |
-| Interval | u8 | 1 Byte | 采集间隔，单位 ms |
-| Total Conduction Num | u16 | 2 Byte | 系统中总导通检测的数量 |
-| Start Conduction Num | u16 | 2 Byte | 起始导通数量 |
-| Conduction Num | u16 | 2 Byte | 导通检测数量 |
-
-
-### Clip Config Response Message
-| Data | Type | Length | Description |
-| --- | --- | --- | --- |
-| Status | u8 | 1 Byte | 状态码 |
-| Interval | u8 | 1 Byte | 采集间隔，单位 ms |
-| mode | u8 | 1 Byte | 0：非自锁<br/>1：自锁 |
-| Clip Pin | u16 | 2 Byte | 16 个卡钉激活信息，激活的位置 1，未激活的位置 0 |
 
 
 ### Rst Response Message

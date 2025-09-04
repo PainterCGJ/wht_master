@@ -164,8 +164,6 @@ std::unique_ptr<Message> ProtocolProcessor::createMessage(PacketId packetId,
             switch (static_cast<Master2SlaveMessageId>(messageId)) {
                 case Master2SlaveMessageId::SYNC_MSG:
                     return std::make_unique<Master2Slave::SyncMessage>();
-                case Master2SlaveMessageId::RST_MSG:
-                    return std::make_unique<Master2Slave::RstMessage>();
                 case Master2SlaveMessageId::PING_REQ_MSG:
                     return std::make_unique<Master2Slave::PingReqMessage>();
                 case Master2SlaveMessageId::SHORT_ID_ASSIGN_MSG:

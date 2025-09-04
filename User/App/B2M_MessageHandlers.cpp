@@ -226,7 +226,7 @@ void ControlHandler::executeActions(const Message &message, MasterServer *server
             // 启动数据采集模式
             deviceManager.startDataCollection();
 
-            // 向所有从机发送SlaveControlMessage启动采集
+            // 通过TDMA同步消息向所有从机启动采集
             server->startSlaveDataCollection();
 
             elog_v("ControlHandler",
@@ -241,18 +241,15 @@ void ControlHandler::executeActions(const Message &message, MasterServer *server
         break;
 
     case SYSTEM_STATUS_RESET: // 重置
-        elog_v("ControlHandler", "Resetting all devices");
+        elog_v("ControlHandler", "Resetting all devices via TDMA sync messages");
 
-        // 重置所有从机状态
+        // 标记所有从机需要复位，复位将通过下一次同步消息发送
         for (uint32_t slaveId : deviceManager.getConnectedSlaves())
         {
             if (deviceManager.hasSlaveConfig(slaveId))
             {
-                auto resetCmd = std::make_unique<Master2Slave::RstMessage>();
-                resetCmd->lockStatus = RESET_UNLOCK; // 解锁
-                resetCmd->clipLed = LED_OFF;         // 关闭LED
-
-                server->sendCommandToSlaveWithRetry(slaveId, std::move(resetCmd), RESET_MAX_RETRIES);
+                deviceManager.markSlaveForReset(slaveId);
+                elog_v("ControlHandler", "Marked slave 0x%08X for reset", slaveId);
             }
         }
 
