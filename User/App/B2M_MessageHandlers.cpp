@@ -230,9 +230,6 @@ void ControlHandler::executeActions(const Message &message,
             // 清除所有待处理的命令，避免无意义的重试
             server->clearAllPendingCommands();
 
-            // 向所有从机发送停止控制命令
-            server->stopSlaveDataCollection();
-
             // 停止所有数据采集
             deviceManager.resetDataCollection();
 

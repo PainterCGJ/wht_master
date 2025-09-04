@@ -6,8 +6,8 @@
 #include "FreeRTOS.h"
 #include "WhtsProtocol.h"
 #include "hptimer.hpp"
-#include "task.h"
 #include "master_app.h"
+#include "task.h"
 
 using namespace WhtsProtocol;
 
@@ -85,8 +85,9 @@ inline uint32_t getCurrentTimestampUs() { return hal_hptimer_get_us(); }
 class DeviceManager {
    private:
     // 根据当前模式选择配置参数和估算采集时间
-    static constexpr uint8_t DEFAULT_INTERVAL_MS_VAL = CONDUCTION_INTERVAL;    // 默认采集间隔
-    static constexpr uint8_t BUFFER_TIME_MS_VAL = BUFFER_TIME_MS;               // 缓冲时间
+    static constexpr uint8_t DEFAULT_INTERVAL_MS_VAL =
+        CONDUCTION_INTERVAL;    // 默认采集间隔
+    static constexpr uint8_t BUFFER_TIME_MS_VAL = BUFFER_TIME_MS;    // 缓冲时间
 
     std::unordered_map<uint32_t, bool> connectedSlaves;
     std::unordered_map<uint32_t, uint8_t> slaveShortIds;
@@ -117,15 +118,14 @@ class DeviceManager {
     void removeSlave(uint32_t slaveId);
     bool isSlaveConnected(uint32_t slaveId) const;
     std::vector<uint32_t> getConnectedSlaves() const;
-    std::vector<uint32_t> getConnectedSlavesInConfigOrder()
-        const;    // Get connected slaves in configuration order
+    std::vector<uint32_t> getConnectedSlavesInConfigOrder() const;
     uint8_t getSlaveShortId(uint32_t slaveId) const;
 
     // 设备信息管理
     void addDeviceInfo(uint32_t deviceId, uint8_t versionMajor,
                        uint8_t versionMinor, uint16_t versionPatch);
     void updateDeviceAnnounce(uint32_t deviceId);
-    void removeDeviceInfo(uint32_t deviceId);    // 从设备列表中删除设备
+    void removeDeviceInfo(uint32_t deviceId);
     bool shouldAssignShortId(uint32_t deviceId) const;
     uint8_t assignShortId(uint32_t deviceId);
     void confirmShortId(uint32_t deviceId, uint8_t shortId);

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
-#include <vector>
 
 #include "WhtsProtocol.h"
 
@@ -61,88 +59,6 @@ class ShortIdConfirmHandler : public ISlave2MasterMessageHandler {
     ShortIdConfirmHandler &operator=(const ShortIdConfirmHandler &) = delete;
 };
 
-// SetTime Response Message Handler
-class SetTimeResponseHandler : public ISlave2MasterMessageHandler {
-   public:
-    static SetTimeResponseHandler &getInstance() {
-        static SetTimeResponseHandler instance;
-        return instance;
-    }
-    std::unique_ptr<Message> processMessage(uint32_t slaveId,
-                                            const Message &message,
-                                            MasterServer *server) override;
-    void executeActions(uint32_t slaveId, const Message &message,
-                        MasterServer *server) override;
-
-   private:
-    SetTimeResponseHandler() = default;
-    SetTimeResponseHandler(const SetTimeResponseHandler &) = delete;
-    SetTimeResponseHandler &operator=(const SetTimeResponseHandler &) = delete;
-};
-
-// Conduction Config Response Handler
-class ConductionConfigResponseHandler : public ISlave2MasterMessageHandler {
-   public:
-    static ConductionConfigResponseHandler &getInstance() {
-        static ConductionConfigResponseHandler instance;
-        return instance;
-    }
-    std::unique_ptr<Message> processMessage(uint32_t slaveId,
-                                            const Message &message,
-                                            MasterServer *server) override;
-    void executeActions(uint32_t slaveId, const Message &message,
-                        MasterServer *server) override;
-
-   private:
-    ConductionConfigResponseHandler() = default;
-    ConductionConfigResponseHandler(const ConductionConfigResponseHandler &) =
-        delete;
-    ConductionConfigResponseHandler &operator=(
-        const ConductionConfigResponseHandler &) = delete;
-};
-
-// Resistance Config Response Handler
-class ResistanceConfigResponseHandler : public ISlave2MasterMessageHandler {
-   public:
-    static ResistanceConfigResponseHandler &getInstance() {
-        static ResistanceConfigResponseHandler instance;
-        return instance;
-    }
-    std::unique_ptr<Message> processMessage(uint32_t slaveId,
-                                            const Message &message,
-                                            MasterServer *server) override;
-    void executeActions(uint32_t slaveId, const Message &message,
-                        MasterServer *server) override;
-
-   private:
-    ResistanceConfigResponseHandler() = default;
-    ResistanceConfigResponseHandler(const ResistanceConfigResponseHandler &) =
-        delete;
-    ResistanceConfigResponseHandler &operator=(
-        const ResistanceConfigResponseHandler &) = delete;
-};
-
-// Clip Config Response Handler
-class ClipConfigResponseHandler : public ISlave2MasterMessageHandler {
-   public:
-    static ClipConfigResponseHandler &getInstance() {
-        static ClipConfigResponseHandler instance;
-        return instance;
-    }
-    std::unique_ptr<Message> processMessage(uint32_t slaveId,
-                                            const Message &message,
-                                            MasterServer *server) override;
-    void executeActions(uint32_t slaveId, const Message &message,
-                        MasterServer *server) override;
-
-   private:
-    ClipConfigResponseHandler() = default;
-    ClipConfigResponseHandler(const ClipConfigResponseHandler &) = delete;
-    ClipConfigResponseHandler &operator=(const ClipConfigResponseHandler &) =
-        delete;
-};
-
-// Reset Response Handler
 class ResetResponseHandler : public ISlave2MasterMessageHandler {
    public:
     static ResetResponseHandler &getInstance() {
@@ -178,24 +94,4 @@ class PingResponseHandler : public ISlave2MasterMessageHandler {
     PingResponseHandler() = default;
     PingResponseHandler(const PingResponseHandler &) = delete;
     PingResponseHandler &operator=(const PingResponseHandler &) = delete;
-};
-
-// Slave Control Response Handler
-class SlaveControlResponseHandler : public ISlave2MasterMessageHandler {
-   public:
-    static SlaveControlResponseHandler &getInstance() {
-        static SlaveControlResponseHandler instance;
-        return instance;
-    }
-    std::unique_ptr<Message> processMessage(uint32_t slaveId,
-                                            const Message &message,
-                                            MasterServer *server) override;
-    void executeActions(uint32_t slaveId, const Message &message,
-                        MasterServer *server) override;
-
-   private:
-    SlaveControlResponseHandler() = default;
-    SlaveControlResponseHandler(const SlaveControlResponseHandler &) = delete;
-    SlaveControlResponseHandler &operator=(
-        const SlaveControlResponseHandler &) = delete;
 };

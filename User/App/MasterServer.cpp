@@ -16,9 +16,7 @@
 MasterServer::MasterServer()
     : pendingCommandsMutex("PendingCommandsMutex"),
       lastSyncTime(0),
-      initialTimeSyncCompleted(false),
-      timeSyncMutex("TimeSyncMutex"),
-      controlMutex("ControlMutex") {
+      initialTimeSyncCompleted(false) {
     initializeMessageHandlers();
     initializeSlave2MasterHandlers();
 
@@ -61,26 +59,11 @@ void MasterServer::initializeSlave2MasterHandlers() {
         Slave2MasterMessageId::SHORT_ID_CONFIRM_MSG)] =
         &ShortIdConfirmHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(
-        Slave2MasterMessageId::SET_TIME_RSP_MSG)] =
-        &SetTimeResponseHandler::getInstance();
-    slave2MasterHandlers_[static_cast<uint8_t>(
-        Slave2MasterMessageId::CONDUCTION_CFG_RSP_MSG)] =
-        &ConductionConfigResponseHandler::getInstance();
-    slave2MasterHandlers_[static_cast<uint8_t>(
-        Slave2MasterMessageId::RESISTANCE_CFG_RSP_MSG)] =
-        &ResistanceConfigResponseHandler::getInstance();
-    slave2MasterHandlers_[static_cast<uint8_t>(
-        Slave2MasterMessageId::CLIP_CFG_RSP_MSG)] =
-        &ClipConfigResponseHandler::getInstance();
-    slave2MasterHandlers_[static_cast<uint8_t>(
         Slave2MasterMessageId::RST_RSP_MSG)] =
         &ResetResponseHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(
         Slave2MasterMessageId::PING_RSP_MSG)] =
         &PingResponseHandler::getInstance();
-    slave2MasterHandlers_[static_cast<uint8_t>(
-        Slave2MasterMessageId::SLAVE_CONTROL_RSP_MSG)] =
-        &SlaveControlResponseHandler::getInstance();
 }
 
 uint32_t MasterServer::getCurrentTimestamp() { return hal_hptimer_get_ms(); }
@@ -88,14 +71,14 @@ uint32_t MasterServer::getCurrentTimestamp() { return hal_hptimer_get_ms(); }
 uint16_t MasterServer::calculateTotalConductionNum() const {
     uint16_t totalConductionNum = 0;
     auto connectedSlaves = deviceManager.getConnectedSlavesInConfigOrder();
-    
+
     for (uint32_t slaveId : connectedSlaves) {
         if (deviceManager.hasSlaveConfig(slaveId)) {
             const auto &slaveConfig = deviceManager.getSlaveConfig(slaveId);
             totalConductionNum += slaveConfig.conductionNum;
         }
     }
-    
+
     return totalConductionNum;
 }
 
@@ -199,7 +182,8 @@ void MasterServer::processPendingCommands() {
     Lock lock(pendingCommandsMutex);
 
     uint32_t currentTime = getCurrentTimestampMs();
-    constexpr uint32_t BASE_RETRY_TIMEOUT = BASE_RETRY_TIMEOUT_MS;    // 基础重试超时时间
+    constexpr uint32_t BASE_RETRY_TIMEOUT =
+        BASE_RETRY_TIMEOUT_MS;    // 基础重试超时时间
 
     auto it = pendingCommands.begin();
     while (it != pendingCommands.end()) {
@@ -343,7 +327,8 @@ void MasterServer::processPendingBackendResponses() {
     uint32_t currentTime = getCurrentTimestampMs();
 
     // Add safety check to prevent getting stuck in this method
-    const uint32_t MAX_PROCESS_TIME = MAX_BACKEND_PROCESS_TIME_MS;    // 最大处理时间
+    const uint32_t MAX_PROCESS_TIME =
+        MAX_BACKEND_PROCESS_TIME_MS;    // 最大处理时间
     if (lastProcessTime > 0 &&
         (currentTime - lastProcessTime) > MAX_PROCESS_TIME) {
         elog_w(TAG,
@@ -831,7 +816,9 @@ void MasterServer::processFrame(Frame &frame) {
     } else if (frame.packetId ==
                static_cast<uint8_t>(PacketId::SLAVE_TO_BACKEND)) {
         // SLAVE_TO_BACKEND帧现在在SlaveDataProcT中直接透传，这里不再处理
-        elog_v(TAG, "SLAVE_TO_BACKEND frame ignored in processFrame (handled in SlaveDataProcT)");
+        elog_v(TAG,
+               "SLAVE_TO_BACKEND frame ignored in processFrame (handled in "
+               "SlaveDataProcT)");
     } else {
         elog_w(TAG, "Unsupported packet type for Master: 0x%02X",
                static_cast<int>(frame.packetId));
@@ -840,93 +827,64 @@ void MasterServer::processFrame(Frame &frame) {
 
 // 数据采集管理
 void MasterServer::startSlaveDataCollection() {
-    DeviceManager &dm = getDeviceManager();
-
-    // 获取所有已连接的从机
-    auto connectedSlaves = dm.getConnectedSlaves();
-
-    elog_i(TAG, "Found %d connected slaves for data collection start",
-           static_cast<int>(connectedSlaves.size()));
-
-    // DEPRECATED: Individual SlaveControl messages have been merged into unified TDMA sync message
-    // Data collection control is now handled automatically through periodic sync messages
-    elog_i(TAG, "Data collection control is now handled via TDMA sync messages - no individual commands sent");
-    
-    // Enable TDMA sync message broadcasting by marking initial time sync as completed
-    // In the new unified design, time synchronization is handled by TDMA sync messages
+    // Enable TDMA sync message broadcasting by marking initial time sync as
+    // completed In the new unified design, time synchronization is handled by
+    // TDMA sync messages
     if (!initialTimeSyncCompleted) {
         initialTimeSyncCompleted = true;
-        elog_i(TAG, "Enabled TDMA sync message broadcasting - time sync and control will be handled automatically");
+        elog_i(TAG,
+               "Enabled TDMA sync message broadcasting - time sync and control "
+               "will be handled automatically");
     }
-    
-    // The actual start/stop control will be handled by the unified sync messages
-    // which are sent periodically by processTimeSync() method
-    elog_v(TAG, "Slaves will receive start commands via next TDMA sync message broadcast");
-}
-
-void MasterServer::stopSlaveDataCollection() {
-    DeviceManager &dm = getDeviceManager();
-
-    // 获取所有已连接的从机
-    auto connectedSlaves = dm.getConnectedSlaves();
-
-    elog_i(TAG, "Found %d connected slaves for data collection stop",
-           static_cast<int>(connectedSlaves.size()));
-
-    // DEPRECATED: Individual SlaveControl messages have been merged into unified TDMA sync message
-    // Data collection control is now handled automatically through periodic sync messages
-    elog_i(TAG, "Data collection control is now handled via TDMA sync messages - no individual commands sent");
-    
-    // The actual start/stop control will be handled by the unified sync messages
-    // which are sent periodically by processTimeSync() method
-    elog_v(TAG, "Slaves will receive stop commands via next TDMA sync message broadcast");
 }
 
 void MasterServer::processTimeSync() {
     DeviceManager &dm = getDeviceManager();
 
     // 只有在系统运行时且已完成初始时间同步后才发送定时同步消息
-    if (dm.getSystemRunningStatus() != SYSTEM_STATUS_RUN || !initialTimeSyncCompleted) {
+    if (dm.getSystemRunningStatus() != SYSTEM_STATUS_RUN ||
+        !initialTimeSyncCompleted) {
         return;
     }
 
     uint32_t currentTime = getCurrentTimestampMs();
 
     // 计算TDMA周期长度: 延迟启动时间 + 总时隙数量 × interval + 额外延迟
-    uint32_t startupDelayMs = TDMA_STARTUP_DELAY_MS;  // 启动延迟时间（与startTime设置保持一致）
-    uint32_t extraDelayMs = TDMA_EXTRA_DELAY_MS;      // 额外的安全延迟时间
-    
+    uint32_t startupDelayMs = TDMA_STARTUP_DELAY_MS;
+    uint32_t extraDelayMs = TDMA_EXTRA_DELAY_MS;
+
     // totalTimeSlots = totalConductionNum * CONDUCTION_INTERVAL
     uint32_t totalConductionNum = calculateTotalConductionNum();
-    
+
     // 获取有效的采集间隔
     uint32_t intervalMs = static_cast<uint32_t>(dm.getEffectiveInterval());
     uint32_t totalTimeSlots = totalConductionNum * intervalMs;
-    
+
     // 计算完整的TDMA周期时间D
-    uint32_t tdmaCycleMs = startupDelayMs + (totalTimeSlots * intervalMs) + extraDelayMs;
-    
+    uint32_t tdmaCycleMs =
+        startupDelayMs + (totalTimeSlots * intervalMs) + extraDelayMs;
+
     // 最小周期保护，避免过于频繁的同步
     if (tdmaCycleMs < TDMA_MIN_CYCLE_MS) {
-        tdmaCycleMs = TDMA_MIN_CYCLE_MS;  // 最小周期时间
+        tdmaCycleMs = TDMA_MIN_CYCLE_MS;
     }
 
     // 检查是否需要发送TDMA同步消息
     if (currentTime - lastSyncTime >= tdmaCycleMs) {
         // 创建统一的TDMA同步消息
         auto syncCmd = std::make_unique<Master2Slave::SyncMessage>();
-        
+
         // 设置基本字段
-        syncCmd->mode = dm.getCurrentMode();  // 0：导通检测, 1：阻值检测, 2：卡钉检测
-        syncCmd->interval = dm.getEffectiveInterval();  // 采集间隔（ms）
-        
+        syncCmd->mode = dm.getCurrentMode();
+        syncCmd->interval = dm.getEffectiveInterval();
+
         // 当前时间和启动时间（微秒）
         uint64_t timestampUs = hal_hptimer_get_us();
         syncCmd->currentTime = timestampUs;
-        
+
         // 启动时间设置为当前时间加上启动延迟时间
-        syncCmd->startTime = timestampUs + (startupDelayMs * 1000);  // 启动延迟，转换为微秒
-        
+        syncCmd->startTime = timestampUs + (startupDelayMs * 1000);
+
         // 构建从机配置列表
         buildSlaveConfigsForSync(*syncCmd, dm);
 
@@ -935,250 +893,74 @@ void MasterServer::processTimeSync() {
 
         lastSyncTime = currentTime;
 
-        elog_v(TAG,
-               "Broadcasted TDMA sync message (mode=%d, interval=%d ms, "
-               "current_time=%lu us, start_time=%lu us, slaves=%d, cycle=%lu ms)",
-               dm.getCurrentMode(), dm.getEffectiveInterval(),
-               (unsigned long)timestampUs, (unsigned long)(timestampUs + startupDelayMs * 1000),
-               static_cast<int>(totalTimeSlots), (unsigned long)tdmaCycleMs);
+        elog_v(
+            TAG,
+            "Broadcasted TDMA sync message (mode=%d, interval=%d ms, "
+            "current_time=%lu us, start_time=%lu us, slaves=%d, cycle=%lu ms)",
+            dm.getCurrentMode(), dm.getEffectiveInterval(),
+            (unsigned long)timestampUs,
+            (unsigned long)(timestampUs + startupDelayMs * 1000),
+            static_cast<int>(totalTimeSlots), (unsigned long)tdmaCycleMs);
     }
 }
 
-void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage& syncMsg, 
-                                            const DeviceManager& dm) {
+void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage &syncMsg,
+                                            const DeviceManager &dm) {
     syncMsg.slaveConfigs.clear();
-    
+
     // 获取按配置顺序排列的已连接从机
     auto connectedSlaves = dm.getConnectedSlavesInConfigOrder();
-    
-    uint8_t timeSlot = 0;  // 时隙从0开始分配
-    
+
+    uint8_t timeSlot = 0;    // 时隙从0开始分配
+
     for (uint32_t slaveId : connectedSlaves) {
         if (!dm.hasSlaveConfig(slaveId)) {
-            elog_w(TAG, "Slave 0x%08X connected but no config found, skipping", slaveId);
+            elog_w(TAG, "Slave 0x%08X connected but no config found, skipping",
+                   slaveId);
             continue;
         }
-        
+
         auto slaveConfig = dm.getSlaveConfig(slaveId);
         Master2Slave::SyncMessage::SlaveConfig config;
-        
+
         config.id = slaveId;
-        config.timeSlot = timeSlot++;  // 按顺序分配时隙，从0开始
-        
+        config.timeSlot = timeSlot++;    // 按顺序分配时隙，从0开始
+
         // 根据当前模式设置测试数量
         switch (dm.getCurrentMode()) {
-            case MODE_CONDUCTION:  // 导通检测
+            case MODE_CONDUCTION:    // 导通检测
                 config.testCount = slaveConfig.conductionNum;
                 break;
-            case MODE_RESISTANCE:  // 阻值检测
+            case MODE_RESISTANCE:    // 阻值检测
                 config.testCount = slaveConfig.resistanceNum;
                 break;
-            case MODE_CLIP:  // 卡钉检测
-                config.testCount = slaveConfig.clipMode;  // 使用clipMode作为卡钉数量
+            case MODE_CLIP:    // 卡钉检测
+                config.testCount =
+                    slaveConfig.clipMode;    // 使用clipMode作为卡钉数量
                 break;
             default:
                 config.testCount = 0;
-                elog_w(TAG, "Unknown mode %d for slave 0x%08X", dm.getCurrentMode(), slaveId);
+                elog_w(TAG, "Unknown mode %d for slave 0x%08X",
+                       dm.getCurrentMode(), slaveId);
                 break;
         }
-        
+
         syncMsg.slaveConfigs.push_back(config);
-        
-        elog_v(TAG, "Added slave 0x%08X to sync: timeSlot=%d, testCount=%d (mode=%d)",
-               slaveId, config.timeSlot, config.testCount, dm.getCurrentMode());
+
+        elog_v(
+            TAG,
+            "Added slave 0x%08X to sync: timeSlot=%d, testCount=%d (mode=%d)",
+            slaveId, config.timeSlot, config.testCount, dm.getCurrentMode());
     }
-    
-    elog_v(TAG, "Built sync message with %d slave configurations", 
+
+    elog_v(TAG, "Built sync message with %d slave configurations",
            static_cast<int>(syncMsg.slaveConfigs.size()));
-}
-
-bool MasterServer::ensureAllSlavesTimeSynced() {
-    DeviceManager &dm = getDeviceManager();
-
-    // 获取所有已连接的从机
-    auto connectedSlaves = dm.getConnectedSlaves();
-
-    if (connectedSlaves.empty()) {
-        elog_w(TAG, "No connected slaves found for time synchronization");
-        return true;    // 没有从机时认为同步成功
-    }
-
-    elog_i(TAG, "Starting sequential time synchronization for %d slaves",
-           static_cast<int>(connectedSlaves.size()));
-
-    // 清空之前的时间同步请求
-    clearTimeSyncRequests();
-
-    // 顺序为每个从机设置时间：发送 -> 等待响应 -> 下一个从机
-    int syncedCount = 0;
-    int currentIndex = 0;
-    for (uint32_t slaveId : connectedSlaves) {
-        currentIndex++;
-        elog_i(TAG, "Starting time sync for slave 0x%08X (%d/%d)", slaveId,
-               currentIndex, static_cast<int>(connectedSlaves.size()));
-
-        if (sendSetTimeToSlave(slaveId)) {
-            syncedCount++;
-            elog_i(TAG, "✓ Time sync successful for slave 0x%08X", slaveId);
-        } else {
-            elog_w(TAG, "✗ Time sync failed for slave 0x%08X", slaveId);
-        }
-
-        // 添加小延迟避免消息冲突
-        vTaskDelay(pdMS_TO_TICKS(TIME_SYNC_DELAY_MS));
-    }
-
-    // 清理完成的时间同步请求
-    clearTimeSyncRequests();
-
-    elog_i(TAG, "Time synchronization completed: %d/%d slaves synced",
-           syncedCount, static_cast<int>(connectedSlaves.size()));
-
-    // 标记初始时间同步已完成
-    initialTimeSyncCompleted = true;
-
-    return syncedCount == static_cast<int>(connectedSlaves.size());
-}
-
-bool MasterServer::sendSetTimeToSlave(uint32_t slaveId) {
-    // DEPRECATED: SetTime message has been merged into unified TDMA sync message
-    // Time synchronization is now handled automatically through periodic sync messages
-    elog_d(TAG, "SetTime message deprecated - time sync handled via TDMA sync messages for slave 0x%08X", slaveId);
-    
-    // Return true to maintain compatibility with existing code flow
-    return true;
-}
-
-// 时间同步响应管理方法
-void MasterServer::addTimeSyncRequest(uint32_t slaveId, uint64_t timestamp) {
-    Lock lock(timeSyncMutex);
-    uint32_t currentTime = getCurrentTimestampMs();
-    pendingTimeSyncRequests.emplace_back(slaveId, timestamp, currentTime);
-
-    elog_v(TAG, "Added time sync request for slave 0x%08X (timestamp=%lu us)",
-           slaveId, (unsigned long)timestamp);
-}
-
-void MasterServer::markTimeSyncResponse(uint32_t slaveId, bool success) {
-    Lock lock(timeSyncMutex);
-
-    for (auto &request : pendingTimeSyncRequests) {
-        if (request.slaveId == slaveId && !request.responseReceived) {
-            request.responseReceived = true;
-            request.success = success;
-            elog_v(TAG, "Marked time sync response for slave 0x%08X: %s",
-                   slaveId, success ? "success" : "failed");
-            break;
-        }
-    }
-}
-
-bool MasterServer::waitForTimeSyncResponse(uint32_t slaveId,
-                                           uint32_t timeoutMs) {
-    uint32_t startTime = getCurrentTimestampMs();
-
-    while ((getCurrentTimestampMs() - startTime) < timeoutMs) {
-        {
-            Lock lock(timeSyncMutex);
-            for (const auto &request : pendingTimeSyncRequests) {
-                if (request.slaveId == slaveId && request.responseReceived) {
-                    return request.success;
-                }
-            }
-        }
-
-        // 短暂延迟避免过度占用CPU
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-
-    elog_w(TAG, "Time sync response timeout for slave 0x%08X", slaveId);
-    return false;
-}
-
-void MasterServer::clearTimeSyncRequests() {
-    Lock lock(timeSyncMutex);
-    pendingTimeSyncRequests.clear();
-    elog_v(TAG, "Cleared all pending time sync requests");
-}
-
-// 控制消息响应管理方法
-void MasterServer::addControlRequest(uint32_t slaveId, uint64_t startTime) {
-    Lock lock(controlMutex);
-    uint32_t currentTime = getCurrentTimestampMs();
-    pendingControlRequests.emplace_back(slaveId, startTime, currentTime);
-
-    elog_v(TAG, "Added control request for slave 0x%08X (startTime=%lu us)",
-           slaveId, (unsigned long)startTime);
-}
-
-void MasterServer::markControlResponse(uint32_t slaveId, bool success) {
-    Lock lock(controlMutex);
-
-    for (auto &request : pendingControlRequests) {
-        if (request.slaveId == slaveId && !request.responseReceived) {
-            request.responseReceived = true;
-            request.success = success;
-            elog_v(TAG, "Marked control response for slave 0x%08X: %s", slaveId,
-                   success ? "success" : "failed");
-            break;
-        }
-    }
-}
-
-bool MasterServer::waitForAllControlResponses(
-    const std::vector<uint32_t> &slaveIds, uint32_t timeoutMs) {
-    uint32_t startTime = getCurrentTimestampMs();
-
-    while ((getCurrentTimestampMs() - startTime) < timeoutMs) {
-        bool allReceived = true;
-        int successCount = 0;
-
-        {
-            Lock lock(controlMutex);
-            for (uint32_t slaveId : slaveIds) {
-                bool found = false;
-                for (const auto &request : pendingControlRequests) {
-                    if (request.slaveId == slaveId) {
-                        found = true;
-                        if (!request.responseReceived) {
-                            allReceived = false;
-                            break;
-                        } else if (request.success) {
-                            successCount++;
-                        }
-                        break;
-                    }
-                }
-                if (!found) {
-                    allReceived = false;
-                    break;
-                }
-            }
-        }
-
-        if (allReceived) {
-            elog_i(TAG, "All control responses received: %d/%d successful",
-                   successCount, static_cast<int>(slaveIds.size()));
-            return successCount == static_cast<int>(slaveIds.size());
-        }
-
-        // 短暂延迟避免过度占用CPU
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-
-    elog_w(TAG, "Control response timeout for some slaves");
-    return false;
-}
-
-void MasterServer::clearControlRequests() {
-    Lock lock(controlMutex);
-    pendingControlRequests.clear();
-    elog_v(TAG, "Cleared all pending control requests");
 }
 
 bool MasterServer::sendToBackend(std::vector<uint8_t> &frame) {
     // 数据通过UDP_SendData发送
-    if (UDP_SendData(frame.data(), frame.size(), DEFAULT_BACKEND_IP, DEFAULT_BACKEND_PORT) == 0) {
+    if (UDP_SendData(frame.data(), frame.size(), DEFAULT_BACKEND_IP,
+                     DEFAULT_BACKEND_PORT) == 0) {
         elog_i(TAG, "sendToBackend success");
         return true;
     } else {
@@ -1190,8 +972,8 @@ bool MasterServer::sendToBackend(std::vector<uint8_t> &frame) {
 bool MasterServer::sendToSlave(std::vector<uint8_t> &frame) {
     static uint32_t consecutiveFailures = 0;
     static uint32_t lastFailureTime = 0;
-    const uint32_t MAX_CONSECUTIVE_FAILURES = MAX_CONSECUTIVE_UWB_FAILURES;     // 最大连续失败次数
-    const uint32_t FAILURE_RESET_INTERVAL = UWB_FAILURE_RESET_INTERVAL_MS;    // 失败重置间隔
+    const uint32_t MAX_CONSECUTIVE_FAILURES = MAX_CONSECUTIVE_UWB_FAILURES;
+    const uint32_t FAILURE_RESET_INTERVAL = UWB_FAILURE_RESET_INTERVAL_MS;
 
     uint32_t currentTime = getCurrentTimestampMs();
 
@@ -1225,7 +1007,8 @@ bool MasterServer::sendToSlave(std::vector<uint8_t> &frame) {
 bool MasterServer::checkAndRecoverUWBHealth() {
     static uint32_t lastHealthCheck = 0;
     static uint32_t uwbResetCount = 0;
-    const uint32_t HEALTH_CHECK_INTERVAL = UWB_HEALTH_CHECK_INTERVAL_MS;    // UWB健康检查间隔
+    const uint32_t HEALTH_CHECK_INTERVAL =
+        UWB_HEALTH_CHECK_INTERVAL_MS;    // UWB健康检查间隔
 
     uint32_t currentTime = getCurrentTimestampMs();
 
@@ -1249,7 +1032,6 @@ void MasterServer::SlaveDataProcT::task() {
     uwb_rx_msg_t msg;
     for (;;) {
         if (UWB_ReceiveData(&msg, 0) == 0) {
-
             elog_v(TAG, "SlaveDataProcT recvData size: %d", msg.data_len);
             // copy msg.data to recvData
             recvData.assign(msg.data, msg.data + msg.data_len);
@@ -1260,36 +1042,46 @@ void MasterServer::SlaveDataProcT::task() {
                 size_t pos = 0;
                 while (pos < recvData.size()) {
                     // 查找帧头
-                    size_t frameStart = parent.processor.findFrameHeader(recvData, pos);
+                    size_t frameStart =
+                        parent.processor.findFrameHeader(recvData, pos);
                     if (frameStart == SIZE_MAX) {
-                        break; // 没有找到更多帧头
+                        break;    // 没有找到更多帧头
                     }
-                    
+
                     // 检查帧长度是否足够
                     if (frameStart + 7 > recvData.size()) {
-                        break; // 帧头不完整
+                        break;    // 帧头不完整
                     }
-                    
+
                     // 检查PacketId是否为SLAVE_TO_BACKEND
                     uint8_t packetId = recvData[frameStart + 2];
-                    if (packetId == static_cast<uint8_t>(PacketId::SLAVE_TO_BACKEND)) {
+                    if (packetId ==
+                        static_cast<uint8_t>(PacketId::SLAVE_TO_BACKEND)) {
                         // 找到SLAVE_TO_BACKEND帧，直接透传原始数据
                         hasSlaveToBackendFrame = true;
-                        elog_v(TAG, "Found SLAVE_TO_BACKEND frame, forwarding raw data");
-                        
+                        elog_v(TAG,
+                               "Found SLAVE_TO_BACKEND frame, forwarding raw "
+                               "data");
+
                         // 直接透传原始接收数据给后端
                         if (parent.sendToBackend(recvData)) {
-                            elog_v(TAG, "Successfully forwarded raw SLAVE_TO_BACKEND data to backend (%d bytes)", recvData.size());
+                            elog_v(
+                                TAG,
+                                "Successfully forwarded raw SLAVE_TO_BACKEND "
+                                "data to backend (%d bytes)",
+                                recvData.size());
                         } else {
-                            elog_e(TAG, "Failed to forward raw SLAVE_TO_BACKEND data to backend");
+                            elog_e(TAG,
+                                   "Failed to forward raw SLAVE_TO_BACKEND "
+                                   "data to backend");
                         }
-                        break; // 找到SLAVE_TO_BACKEND帧后直接透传，不再处理其他帧
+                        break;    // 找到SLAVE_TO_BACKEND帧后直接透传，不再处理其他帧
                     }
-                    
+
                     // 移动到下一个位置继续查找
                     pos = frameStart + 1;
                 }
-                
+
                 // 如果不是SLAVE_TO_BACKEND帧，则按原来的逻辑处理
                 if (!hasSlaveToBackendFrame) {
                     // process recvData
@@ -1297,8 +1089,8 @@ void MasterServer::SlaveDataProcT::task() {
 
                     // process complete frame
                     Frame receivedFrame;
-                    while (parent.processor.getNextCompleteFrame(receivedFrame))
-                    {
+                    while (
+                        parent.processor.getNextCompleteFrame(receivedFrame)) {
                         parent.processFrame(receivedFrame);
                     }
                 }
@@ -1319,7 +1111,6 @@ void MasterServer::BackDataProcT::task() {
     udp_rx_msg_t msg;
     for (;;) {
         if (UDP_ReceiveData(&msg, 0) == 0) {
-
             // copy msg.data to recvData
             recvData.assign(msg.data, msg.data + msg.data_len);
 
@@ -1382,10 +1173,11 @@ void MasterServer::MainTask::task() {
             parent.getDeviceManager().updateDeviceOnlineStatus();
             lastDeviceStatusCheck = currentTime;
         }
-        
+
         // 定期清理超时设备（删除而不是标记离线）
         if (currentTime - lastDeviceCleanup >= deviceCleanupInterval) {
-            parent.getDeviceManager().cleanupExpiredDevices(DEVICE_TIMEOUT_MS);  // 设备超时删除
+            parent.getDeviceManager().cleanupExpiredDevices(
+                DEVICE_TIMEOUT_MS);    // 设备超时删除
             lastDeviceCleanup = currentTime;
         }
 

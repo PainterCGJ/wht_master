@@ -5,14 +5,9 @@
 #include "B2M_MessageHandlers.h"
 #include "CommandTracking.h"
 #include "DeviceManager.h"
-#include "FreeRTOScpp.h"
 #include "MutexCPP.h"
-#include "QueueCPP.h"
 #include "S2M_MessageHandlers.h"
-#include "SemaphoreCPP.h"
 #include "TaskCPP.h"
-
-
 #include "master_app.h"
 
 class MasterServer {
@@ -21,7 +16,8 @@ class MasterServer {
     ~MasterServer();
 
     constexpr static const char TAG[] = "MasterServer";
-    constexpr static const uint32_t DataSend_TX_QUEUE_TIMEOUT = DATA_SEND_TX_QUEUE_TIMEOUT_MS;
+    constexpr static const uint32_t DataSend_TX_QUEUE_TIMEOUT =
+        DATA_SEND_TX_QUEUE_TIMEOUT_MS;
 
     ProtocolProcessor processor;
     std::unordered_map<uint8_t, std::unique_ptr<IMessageHandler>>
@@ -36,39 +32,7 @@ class MasterServer {
 
     // 时间同步相关
     uint32_t lastSyncTime;
-    bool initialTimeSyncCompleted;  // 标记是否已完成初始时间同步
-    
-    // 时间同步响应跟踪
-    struct TimeSyncRequest {
-        uint32_t slaveId;
-        uint64_t timestamp;
-        uint32_t requestTime;
-        bool responseReceived;
-        bool success;
-        
-        TimeSyncRequest(uint32_t id, uint64_t ts, uint32_t reqTime)
-            : slaveId(id), timestamp(ts), requestTime(reqTime), 
-              responseReceived(false), success(false) {}
-    };
-    
-    std::vector<TimeSyncRequest> pendingTimeSyncRequests;
-    Mutex timeSyncMutex;
-
-    // 控制消息响应跟踪
-    struct ControlRequest {
-        uint32_t slaveId;
-        uint64_t startTime;
-        uint32_t requestTime;
-        bool responseReceived;
-        bool success;
-        
-        ControlRequest(uint32_t id, uint64_t st, uint32_t reqTime)
-            : slaveId(id), startTime(st), requestTime(reqTime), 
-              responseReceived(false), success(false) {}
-    };
-    
-    std::vector<ControlRequest> pendingControlRequests;
-    Mutex controlMutex;
+    bool initialTimeSyncCompleted;    // 标记是否已完成初始时间同步
 
     /**
      * 运行主循环
@@ -173,45 +137,28 @@ class MasterServer {
 
     // 数据采集管理
     void startSlaveDataCollection();
-    void stopSlaveDataCollection();
     void processTimeSync();
-    
-    // 时间同步流程管理
-    bool ensureAllSlavesTimeSynced();
-    bool sendSetTimeToSlave(uint32_t slaveId);
-    
-    // 时间同步响应管理
-    void addTimeSyncRequest(uint32_t slaveId, uint64_t timestamp);
-    void markTimeSyncResponse(uint32_t slaveId, bool success);
-    bool waitForTimeSyncResponse(uint32_t slaveId, uint32_t timeoutMs = 1000);
-    void clearTimeSyncRequests();
-
-    // 控制消息响应管理
-    void addControlRequest(uint32_t slaveId, uint64_t startTime);
-    void markControlResponse(uint32_t slaveId, bool success);
-    bool waitForAllControlResponses(const std::vector<uint32_t>& slaveIds, uint32_t timeoutMs = 2000);
-    void clearControlRequests();
 
     // Device management
     DeviceManager &getDeviceManager() { return deviceManager; }
     ProtocolProcessor &getProcessor() { return processor; }
-    
+
     // Calculate total conduction number for sync interval
     uint16_t calculateTotalConductionNum() const;
-    
+
     // Build slave configurations for unified TDMA sync message
-    void buildSlaveConfigsForSync(Master2Slave::SyncMessage& syncMsg, 
-                                  const DeviceManager& dm);
+    void buildSlaveConfigsForSync(Master2Slave::SyncMessage &syncMsg,
+                                  const DeviceManager &dm);
 
     // Register message handlers
     void registerMessageHandler(uint8_t messageId,
                                 std::unique_ptr<IMessageHandler> handler);
 
    private:
-    IMessageHandler *messageHandlers_[256] =
-        {};    // O(1) lookup, no heap allocation for Backend2Master
-    ISlave2MasterMessageHandler *slave2MasterHandlers_[256] =
-        {};    // O(1) lookup, no heap allocation for Slave2Master
+    // O(1) lookup, no heap allocation for Backend2Master
+    IMessageHandler *messageHandlers_[256] = {};
+    // O(1) lookup, no heap allocation for Slave2Master
+    ISlave2MasterMessageHandler *slave2MasterHandlers_[256] = {};
     void initializeMessageHandlers();
     void initializeSlave2MasterHandlers();
 };
