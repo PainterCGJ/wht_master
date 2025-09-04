@@ -100,11 +100,14 @@ void ResetResponseHandler::executeActions(uint32_t slaveId, const Message &messa
 
     server->getDeviceManager().updateDeviceLastSeen(slaveId);
 
+    // Clear the reset flag for this slave since it has responded
+    server->getDeviceManager().clearSlaveResetFlag(slaveId);
+
     // Handle slave config response for backend tracking
     server->handleSlaveConfigResponse(slaveId, message.getMessageId(), rspMsg->status);
 
-    // 移除相应的待处理命令
-    server->removePendingCommand(slaveId, static_cast<uint8_t>(Master2SlaveMessageId::RST_MSG));
+    // 移除相应的待处理命令（注意：现在不再有单独的RST_MSG命令）
+    // server->removePendingCommand(slaveId, static_cast<uint8_t>(Master2SlaveMessageId::RST_MSG));
 }
 
 // Ping Response Handler

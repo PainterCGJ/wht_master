@@ -26,11 +26,12 @@ class SyncMessage : public Message {
     struct SlaveConfig {
         uint32_t id;         // 4字节从机ID
         uint8_t timeSlot;    // 为从节点分配的时隙
+        uint8_t reset;       // 0: 默认值, 1：执行复位
         uint8_t testCount;   // 导通检测数量/阻值检测数量/卡钉检测数量（根据mode决定含义）
         
-        SlaveConfig() : id(0), timeSlot(0), testCount(0) {}
-        SlaveConfig(uint32_t slaveId, uint8_t slot, uint8_t count) 
-            : id(slaveId), timeSlot(slot), testCount(count) {}
+        SlaveConfig() : id(0), timeSlot(0), reset(0), testCount(0) {}
+        SlaveConfig(uint32_t slaveId, uint8_t slot, uint8_t resetFlag, uint8_t count) 
+            : id(slaveId), timeSlot(slot), reset(resetFlag), testCount(count) {}
     };
     
     std::vector<SlaveConfig> slaveConfigs;  // 所有从机的配置

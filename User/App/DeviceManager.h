@@ -90,6 +90,9 @@ class DeviceManager
     std::vector<uint32_t> slaveConfigOrder; // Store the order of slave configurations as
                                             // received from backend
 
+    // 从机复位状态跟踪
+    std::unordered_map<uint32_t, bool> slaveResetFlags; // 标记哪些从机需要复位
+
     // 设备信息存储
     std::unordered_map<uint32_t, DeviceInfo> deviceInfos; // deviceId -> DeviceInfo
     uint8_t nextShortId;                                  // 下一个可分配的短ID
@@ -152,4 +155,10 @@ class DeviceManager
     void markSlaveControlResponseReceived(uint32_t slaveId);
     CollectionCycleState getCycleState() const;
     bool isDataCollectionActive() const;
+
+    // 从机复位状态管理
+    void markSlaveForReset(uint32_t slaveId);
+    void clearSlaveResetFlag(uint32_t slaveId);
+    bool isSlaveMarkedForReset(uint32_t slaveId) const;
+    void clearAllResetFlags();
 };

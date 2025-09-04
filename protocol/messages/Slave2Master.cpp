@@ -108,19 +108,12 @@ bool ClipConfigResponseMessage::deserialize(const std::vector<uint8_t> &data) {
 
 // RstResponseMessage 实现
 std::vector<uint8_t> RstResponseMessage::serialize() const {
-    std::vector<uint8_t> result;
-    result.push_back(status);
-    result.push_back(lockStatus);
-    result.push_back(clipLed & 0xFF);
-    result.push_back((clipLed >> 8) & 0xFF);
-    return result;
+    return {status};
 }
 
 bool RstResponseMessage::deserialize(const std::vector<uint8_t> &data) {
-    if (data.size() < 4) return false;
+    if (data.size() < 1) return false;
     status = data[0];
-    lockStatus = data[1];
-    clipLed = data[2] | (data[3] << 8);
     return true;
 }
 

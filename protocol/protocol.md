@@ -52,9 +52,11 @@ The protocol is composed of Frames, Packets, and Messages.
 | Start Time | uint64_t | 8 Byte | 启动时间戳（微秒） |
 | Slave 1 ID | u8 | 4 Byte | 4个字节的从机ID |
 | Slave 1 Time Slot | u8 | 1 Byte | 为从节点分配的时隙（从0开始） |
+| Slave 1 Reset | u8 | 1 Byte | 0: 默认值<br/>1：执行复位 |
 | Slave 1 Test Count | u8 | 1 Byte | 导通检测数量/阻值检测数量/卡钉检测数量 |
 | Slave 2 ID | u8 | 4 Byte | 4个字节的从机ID |
 | Slave 2 Time Slot | u8 | 1 Byte | 为从节点分配的时隙（从0开始） |
+| Slave 2 Reset | u8 | 1 Byte | 0: 默认值<br/>1：执行复位 |
 | Slave 2 Test Count | u8 | 1 Byte | 导通检测数量/阻值检测数量/卡钉检测数量 |
 | ... | ... | ... | 重复每个从机的配置 |
 
@@ -108,7 +110,9 @@ The protocol is composed of Frames, Packets, and Messages.
 | Clip Pin | u16 | 2 Byte | 16 个卡钉激活信息，激活的位置 1，未激活的位置 0 |
 
 
-### Rst Message
+### Rst Message (DEPRECATED)
+**注意**: 此消息已被合并到统一的TDMA Sync Message中，不再单独使用。复位功能现在通过同步消息中的Reset标志位实现。
+
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
 | Lock Status | u8 | 1 Byte | 0：解锁<br/>1：上锁 |
@@ -196,9 +200,9 @@ The protocol is composed of Frames, Packets, and Messages.
 ### Rst Response Message
 | Data | Type | Length | Description |
 | --- | --- | --- | --- |
-| Status | u8 | 1 Byte | 状态码 |
-| Lock Status | u8 | 1 Byte | 0，已解锁<br/>1，已上锁 |
-| Clip Led | u16 | 2 Byte | 卡钉灯位初始化信息 |
+| Status | u8 | 1 Byte | 0：复位成功<br/>1：复位异常 |
+
+**注意**: 此消息已简化，从机接收到同步消息中的Reset标志位为1时，进行复位并在下一次发送时隙上报此简化的复位响应消息。
 
 
 ### Ping Rsp Message

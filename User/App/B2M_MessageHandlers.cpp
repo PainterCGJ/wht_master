@@ -1,7 +1,5 @@
 #include "B2M_MessageHandlers.h"
 
-#include <algorithm>
-
 #include "MasterServer.h"
 #include "elog.h"
 #include "master_app.h"
@@ -122,13 +120,17 @@ void ResetHandler::executeActions(const Message &message, MasterServer *server)
     if (!rstMsg)
         return;
 
-    // Extract target slave IDs
+    elog_i("ResetHandler", "Processing reset message for %d slaves", static_cast<int>(rstMsg->slaveNum));
+
+    // Mark slaves for reset - they will be reset via the next sync message
     std::vector<uint32_t> targetSlaves;
     for (const auto &slave : rstMsg->slaves)
     {
         if (server->getDeviceManager().isSlaveConnected(slave.id))
         {
+            server->getDeviceManager().markSlaveForReset(slave.id);
             targetSlaves.push_back(slave.id);
+            elog_v("ResetHandler", "Marked slave 0x%08X for reset via sync message", slave.id);
         }
         else
         {
@@ -138,8 +140,7 @@ void ResetHandler::executeActions(const Message &message, MasterServer *server)
 
     if (targetSlaves.empty())
     {
-        elog_w("ResetHandler", "No connected slaves found for reset, sending immediate success "
-                               "response");
+        elog_w("ResetHandler", "No connected slaves found for reset, sending immediate success response");
         // If no connected slaves, send immediate success response
         auto response = std::make_unique<Master2Backend::RstResponseMessage>();
         response->status = RESPONSE_STATUS_SUCCESS; // Success
@@ -163,29 +164,12 @@ void ResetHandler::executeActions(const Message &message, MasterServer *server)
     originalMessageCopy->slaveNum = rstMsg->slaveNum;
     originalMessageCopy->slaves = rstMsg->slaves;
 
-    // Start configuration tracking - response will be sent when all slaves
-    // respond
+    // Start configuration tracking - response will be sent when all slaves respond with reset responses
     server->addPendingBackendResponse(static_cast<uint8_t>(Backend2MasterMessageId::SLAVE_RST_MSG),
                                       std::move(originalMessageCopy), targetSlaves);
 
-    // Send reset commands to specified slaves with retry mechanism
-    int successCount = 0;
-    for (const auto &slave : rstMsg->slaves)
-    {
-        if (server->getDeviceManager().isSlaveConnected(slave.id))
-        {
-            auto resetCmd = std::make_unique<Master2Slave::RstMessage>();
-            resetCmd->lockStatus = slave.lock;
-            resetCmd->clipLed = slave.clipStatus;
-
-            server->sendCommandToSlaveWithRetry(slave.id, std::move(resetCmd), DEFAULT_MAX_RETRIES);
-            successCount++;
-            elog_v("ResetHandler", "Sent reset command to slave 0x%08X (lock=%d, clipLed=0x%04X)", slave.id,
-                   static_cast<int>(slave.lock), slave.clipStatus);
-        }
-    }
-
-    elog_v("ResetHandler", "Reset commands sent to %d slaves, waiting for responses", successCount);
+    elog_i("ResetHandler", "Reset flags set for %d slaves, they will be reset via next sync message",
+           static_cast<int>(targetSlaves.size()));
 }
 
 // Control Message Handler

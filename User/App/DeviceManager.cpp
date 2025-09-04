@@ -7,7 +7,7 @@
 DeviceManager::DeviceManager()
     : currentMode(MODE_CONDUCTION), systemRunningStatus(SYSTEM_STATUS_STOP),
       configuredIntervalMs(0), // 0表示未配置，使用默认值
-      dataCollectionActive(false), cycleState(CollectionCycleState::IDLE), nextShortId(SHORT_ID_START)
+      nextShortId(SHORT_ID_START), dataCollectionActive(false), cycleState(CollectionCycleState::IDLE)
 {
 } // 短ID从起始值开始分配
 
@@ -357,4 +357,29 @@ void DeviceManager::cleanupExpiredDevices(uint32_t timeoutMs)
     {
         elog_i("DeviceManager", "Cleaned up %d expired devices", static_cast<int>(devicesToRemove.size()));
     }
+}
+
+// 从机复位状态管理方法实现
+void DeviceManager::markSlaveForReset(uint32_t slaveId)
+{
+    slaveResetFlags[slaveId] = true;
+    elog_v("DeviceManager", "Marked slave 0x%08X for reset", slaveId);
+}
+
+void DeviceManager::clearSlaveResetFlag(uint32_t slaveId)
+{
+    slaveResetFlags.erase(slaveId);
+    elog_v("DeviceManager", "Cleared reset flag for slave 0x%08X", slaveId);
+}
+
+bool DeviceManager::isSlaveMarkedForReset(uint32_t slaveId) const
+{
+    auto it = slaveResetFlags.find(slaveId);
+    return it != slaveResetFlags.end() && it->second;
+}
+
+void DeviceManager::clearAllResetFlags()
+{
+    slaveResetFlags.clear();
+    elog_v("DeviceManager", "Cleared all slave reset flags");
 }

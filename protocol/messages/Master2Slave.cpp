@@ -42,6 +42,9 @@ std::vector<uint8_t> SyncMessage::serialize() const {
         // 时隙（1字节）
         result.push_back(config.timeSlot);
         
+        // 复位标志（1字节）
+        result.push_back(config.reset);
+        
         // 测试数量（1字节）
         result.push_back(config.testCount);
     }
@@ -81,9 +84,9 @@ bool SyncMessage::deserialize(const std::vector<uint8_t> &data) {
                 (static_cast<uint64_t>(data[offset + 7]) << 56);
     offset += 8;
     
-    // 反序列化从机配置（每个从机配置6字节：ID(4) + timeSlot(1) + testCount(1)）
+    // 反序列化从机配置（每个从机配置7字节：ID(4) + timeSlot(1) + reset(1) + testCount(1)）
     slaveConfigs.clear();
-    while (offset + 6 <= data.size()) {
+    while (offset + 7 <= data.size()) {
         SlaveConfig config;
         
         // 从机ID（4字节，小端序）
@@ -95,6 +98,9 @@ bool SyncMessage::deserialize(const std::vector<uint8_t> &data) {
         
         // 时隙（1字节）
         config.timeSlot = data[offset++];
+        
+        // 复位标志（1字节）
+        config.reset = data[offset++];
         
         // 测试数量（1字节）
         config.testCount = data[offset++];

@@ -942,6 +942,13 @@ void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage &syncMsg, 
         config.id = slaveId;
         config.timeSlot = timeSlot++; // 按顺序分配时隙，从0开始
 
+        // 检查是否需要复位该从机
+        config.reset = dm.isSlaveMarkedForReset(slaveId) ? 1 : 0;
+        if (config.reset == 1)
+        {
+            elog_v(TAG, "Slave 0x%08X marked for reset in sync message", slaveId);
+        }
+
         // 根据当前模式设置测试数量
         switch (dm.getCurrentMode())
         {
@@ -962,8 +969,8 @@ void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage &syncMsg, 
 
         syncMsg.slaveConfigs.push_back(config);
 
-        elog_v(TAG, "Added slave 0x%08X to sync: timeSlot=%d, testCount=%d (mode=%d)", slaveId, config.timeSlot,
-               config.testCount, dm.getCurrentMode());
+        elog_v(TAG, "Added slave 0x%08X to sync: timeSlot=%d, reset=%d, testCount=%d (mode=%d)", slaveId,
+               config.timeSlot, config.reset, config.testCount, dm.getCurrentMode());
     }
 
     elog_v(TAG, "Built sync message with %d slave configurations", static_cast<int>(syncMsg.slaveConfigs.size()));
