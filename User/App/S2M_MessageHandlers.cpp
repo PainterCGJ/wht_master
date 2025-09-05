@@ -30,9 +30,10 @@ void AnnounceHandler::executeActions(uint32_t slaveId, const Message &message, M
         server->getDeviceManager().updateDeviceAnnounce(announceMsg->deviceId);
     }
 
-    // 检查是否需要分配短ID
+    // 检查是否需要分配短ID或重新发送已分配的短ID
     if (server->getDeviceManager().shouldAssignShortId(announceMsg->deviceId))
     {
+        // 需要分配新的短ID
         uint8_t shortId = server->getDeviceManager().assignShortId(announceMsg->deviceId);
         if (shortId > 0)
         {
@@ -42,6 +43,21 @@ void AnnounceHandler::executeActions(uint32_t slaveId, const Message &message, M
 
             server->sendCommandToSlaveWithRetry(announceMsg->deviceId, std::move(assignMsg), 3);
             elog_i("AnnounceHandler", "Sent short ID assignment (%d) to device 0x%08X", shortId, announceMsg->deviceId);
+        }
+    }
+    else if (server->getDeviceManager().hasDeviceInfo(announceMsg->deviceId))
+    {
+        // 设备已存在，检查是否已分配短ID，如果已分配则重新发送
+        DeviceInfo deviceInfo = server->getDeviceManager().getDeviceInfo(announceMsg->deviceId);
+        if (deviceInfo.shortIdAssigned && deviceInfo.shortId > 0)
+        {
+            // 重新发送已分配的短ID
+            auto assignMsg = std::make_unique<Master2Slave::ShortIdAssignMessage>();
+            assignMsg->shortId = deviceInfo.shortId;
+
+            server->sendCommandToSlaveWithRetry(announceMsg->deviceId, std::move(assignMsg), 3);
+            elog_i("AnnounceHandler", "Re-sent existing short ID assignment (%d) to device 0x%08X", deviceInfo.shortId,
+                   announceMsg->deviceId);
         }
     }
 }
