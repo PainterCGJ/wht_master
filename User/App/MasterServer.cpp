@@ -56,6 +56,8 @@ void MasterServer::initializeSlave2MasterHandlers()
         &ResetResponseHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::PING_RSP_MSG)] =
         &PingResponseHandler::getInstance();
+    slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::HEARTBEAT_MSG)] =
+        &HeartbeatHandler::getInstance();
 }
 
 uint32_t MasterServer::getCurrentTimestamp()
@@ -1031,21 +1033,21 @@ bool MasterServer::sendToSlave(std::vector<uint8_t> &frame)
 
 bool MasterServer::checkAndRecoverUWBHealth()
 {
-    static uint32_t lastHealthCheck = 0;
-    static uint32_t uwbResetCount = 0;
-    const uint32_t HEALTH_CHECK_INTERVAL = UWB_HEALTH_CHECK_INTERVAL_MS; // UWB健康检查间隔
+    // static uint32_t lastHealthCheck = 0;
+    // static uint32_t uwbResetCount = 0;
+    // const uint32_t HEALTH_CHECK_INTERVAL = UWB_HEALTH_CHECK_INTERVAL_MS; // UWB健康检查间隔
 
-    uint32_t currentTime = getCurrentTimestampMs();
+    // uint32_t currentTime = getCurrentTimestampMs();
 
-    // 定期健康检查
-    if (currentTime - lastHealthCheck < HEALTH_CHECK_INTERVAL)
-    {
-        return true; // 还未到检查时间
-    }
+    // // 定期健康检查
+    // if (currentTime - lastHealthCheck < HEALTH_CHECK_INTERVAL)
+    // {
+    //     return true; // 还未到检查时间
+    // }
 
-    lastHealthCheck = currentTime;
+    // lastHealthCheck = currentTime;
 
-    elog_i(TAG, "UWB health check completed, reset count: %d", uwbResetCount);
+    // elog_i(TAG, "UWB health check completed, reset count: %d", uwbResetCount);
     return true;
 }
 

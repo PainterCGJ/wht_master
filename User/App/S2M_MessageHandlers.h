@@ -88,3 +88,21 @@ class PingResponseHandler : public ISlave2MasterMessageHandler
     PingResponseHandler(const PingResponseHandler &) = delete;
     PingResponseHandler &operator=(const PingResponseHandler &) = delete;
 };
+
+// Heartbeat Message Handler
+class HeartbeatHandler : public ISlave2MasterMessageHandler
+{
+  public:
+    static HeartbeatHandler &getInstance()
+    {
+        static HeartbeatHandler instance;
+        return instance;
+    }
+    std::unique_ptr<Message> processMessage(uint32_t slaveId, const Message &message, MasterServer *server) override;
+    void executeActions(uint32_t slaveId, const Message &message, MasterServer *server) override;
+
+  private:
+    HeartbeatHandler() = default;
+    HeartbeatHandler(const HeartbeatHandler &) = delete;
+    HeartbeatHandler &operator=(const HeartbeatHandler &) = delete;
+};
