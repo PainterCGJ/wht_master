@@ -3,61 +3,64 @@
 #include "MasterServer.h"
 #include "elog.h"
 
-// Announce Message Handler
-std::unique_ptr<Message> AnnounceHandler::processMessage(uint32_t slaveId, const Message &message, MasterServer *server)
+// JoinRequest Message Handler
+std::unique_ptr<Message> JoinRequestHandler::processMessage(uint32_t slaveId, const Message &message,
+                                                            MasterServer *server)
 {
-    // Announce messages don't generate responses
+    // JoinRequest messages don't generate responses
     return nullptr;
 }
 
-void AnnounceHandler::executeActions(uint32_t slaveId, const Message &message, MasterServer *server)
+void JoinRequestHandler::executeActions(uint32_t slaveId, const Message &message, MasterServer *server)
 {
-    const auto *announceMsg = dynamic_cast<const Slave2Master::AnnounceMessage *>(&message);
-    if (!announceMsg)
+    const auto *joinRequestMsg = dynamic_cast<const Slave2Master::JoinRequestMessage *>(&message);
+    if (!joinRequestMsg)
         return;
 
-    elog_i("AnnounceHandler", "Received announce message from device 0x%08X (v%d.%d.%d)", announceMsg->deviceId,
-           announceMsg->versionMajor, announceMsg->versionMinor, announceMsg->versionPatch);
+    elog_i("JoinRequestHandler", "Received joinRequest message from device 0x%08X (v%d.%d.%d)",
+           joinRequestMsg->deviceId, joinRequestMsg->versionMajor, joinRequestMsg->versionMinor,
+           joinRequestMsg->versionPatch);
 
     // 添加或更新设备信息
-    if (!server->getDeviceManager().hasDeviceInfo(announceMsg->deviceId))
+    if (!server->getDeviceManager().hasDeviceInfo(joinRequestMsg->deviceId))
     {
-        server->getDeviceManager().addDeviceInfo(announceMsg->deviceId, announceMsg->versionMajor,
-                                                 announceMsg->versionMinor, announceMsg->versionPatch);
+        server->getDeviceManager().addDeviceInfo(joinRequestMsg->deviceId, joinRequestMsg->versionMajor,
+                                                 joinRequestMsg->versionMinor, joinRequestMsg->versionPatch);
     }
     else
     {
-        server->getDeviceManager().updateDeviceAnnounce(announceMsg->deviceId);
+        server->getDeviceManager().updateDeviceJoinRequest(joinRequestMsg->deviceId);
     }
 
     // 检查是否需要分配短ID或重新发送已分配的短ID
-    if (server->getDeviceManager().shouldAssignShortId(announceMsg->deviceId))
+    if (server->getDeviceManager().shouldAssignShortId(joinRequestMsg->deviceId))
     {
         // 需要分配新的短ID
-        uint8_t shortId = server->getDeviceManager().assignShortId(announceMsg->deviceId);
+        uint8_t shortId = server->getDeviceManager().assignShortId(joinRequestMsg->deviceId);
         if (shortId > 0)
         {
             // 发送短ID分配消息
             auto assignMsg = std::make_unique<Master2Slave::ShortIdAssignMessage>();
             assignMsg->shortId = shortId;
 
-            server->sendCommandToSlaveWithRetry(announceMsg->deviceId, std::move(assignMsg), 3);
-            elog_i("AnnounceHandler", "Sent short ID assignment (%d) to device 0x%08X", shortId, announceMsg->deviceId);
+            server->sendCommandToSlaveWithRetry(joinRequestMsg->deviceId, std::move(assignMsg), 3);
+            elog_i("JoinRequestHandler", "Sent short ID assignment (%d) to device 0x%08X", shortId,
+                   joinRequestMsg->deviceId);
         }
     }
-    else if (server->getDeviceManager().hasDeviceInfo(announceMsg->deviceId))
+    else if (server->getDeviceManager().hasDeviceInfo(joinRequestMsg->deviceId))
     {
         // 设备已存在，检查是否已分配短ID，如果已分配则重新发送
-        DeviceInfo deviceInfo = server->getDeviceManager().getDeviceInfo(announceMsg->deviceId);
+        DeviceInfo deviceInfo = server->getDeviceManager().getDeviceInfo(joinRequestMsg->deviceId);
         if (deviceInfo.shortIdAssigned && deviceInfo.shortId > 0)
         {
             // 重新发送已分配的短ID
             auto assignMsg = std::make_unique<Master2Slave::ShortIdAssignMessage>();
             assignMsg->shortId = deviceInfo.shortId;
 
-            server->sendCommandToSlaveWithRetry(announceMsg->deviceId, std::move(assignMsg), 3);
-            elog_i("AnnounceHandler", "Re-sent existing short ID assignment (%d) to device 0x%08X", deviceInfo.shortId,
-                   announceMsg->deviceId);
+            server->sendCommandToSlaveWithRetry(joinRequestMsg->deviceId, std::move(assignMsg), 3);
+            elog_i("JoinRequestHandler", "Re-sent existing short ID assignment (%d) to device 0x%08X",
+                   deviceInfo.shortId, joinRequestMsg->deviceId);
         }
     }
 }

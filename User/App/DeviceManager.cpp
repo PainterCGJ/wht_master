@@ -188,8 +188,8 @@ void DeviceManager::addDeviceInfo(uint32_t deviceId, uint8_t versionMajor, uint8
     {
         // 新设备
         DeviceInfo info(deviceId, versionMajor, versionMinor, versionPatch);
-        info.announceTime = currentTime;
-        info.announceCount = 1;
+        info.joinRequestTime = currentTime;
+        info.joinRequestCount = 1;
         info.lastSeenTime = currentTime;
         deviceInfos[deviceId] = info;
 
@@ -208,15 +208,15 @@ void DeviceManager::addDeviceInfo(uint32_t deviceId, uint8_t versionMajor, uint8
     }
 }
 
-void DeviceManager::updateDeviceAnnounce(uint32_t deviceId)
+void DeviceManager::updateDeviceJoinRequest(uint32_t deviceId)
 {
     auto it = deviceInfos.find(deviceId);
     if (it != deviceInfos.end())
     {
-        it->second.announceCount++;
+        it->second.joinRequestCount++;
         it->second.lastSeenTime = getCurrentTimestampMs();
 
-        elog_v("DeviceManager", "Device 0x%08X announce count: %d", deviceId, it->second.announceCount);
+        elog_v("DeviceManager", "Device 0x%08X joinRequest count: %d", deviceId, it->second.joinRequestCount);
     }
 }
 
@@ -240,7 +240,7 @@ bool DeviceManager::shouldAssignShortId(uint32_t deviceId) const
     }
 
     // 如果还没有分配短ID，且宣告次数在合理范围内
-    return !it->second.shortIdAssigned && it->second.announceCount <= ANNOUNCE_COUNT_LIMIT;
+    return !it->second.shortIdAssigned && it->second.joinRequestCount <= ANNOUNCE_COUNT_LIMIT;
 }
 
 uint8_t DeviceManager::assignShortId(uint32_t deviceId)

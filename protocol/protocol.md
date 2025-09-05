@@ -105,7 +105,7 @@ The protocol is composed of Frames, Packets, and Messages.
 | Timestamp | uint32 | 4 Byte | 回复时刻，可用于估算往返时间 |
 
 
-### Announce Message
+### JoinRequest Message
 | 字段 | 类型 | 长度 | 描述 |
 | --- | --- | --- | --- |
 | Device ID | u32 | 4 Byte | 设备 ID 号 |

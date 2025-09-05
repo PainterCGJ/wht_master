@@ -18,22 +18,22 @@ class ISlave2MasterMessageHandler
     virtual void executeActions(uint32_t slaveId, const Message &message, MasterServer *server) = 0;
 };
 
-// Announce Message Handler
-class AnnounceHandler : public ISlave2MasterMessageHandler
+// JoinRequest Message Handler
+class JoinRequestHandler : public ISlave2MasterMessageHandler
 {
   public:
-    static AnnounceHandler &getInstance()
+    static JoinRequestHandler &getInstance()
     {
-        static AnnounceHandler instance;
+        static JoinRequestHandler instance;
         return instance;
     }
     std::unique_ptr<Message> processMessage(uint32_t slaveId, const Message &message, MasterServer *server) override;
     void executeActions(uint32_t slaveId, const Message &message, MasterServer *server) override;
 
   private:
-    AnnounceHandler() = default;
-    AnnounceHandler(const AnnounceHandler &) = delete;
-    AnnounceHandler &operator=(const AnnounceHandler &) = delete;
+    JoinRequestHandler() = default;
+    JoinRequestHandler(const JoinRequestHandler &) = delete;
+    JoinRequestHandler &operator=(const JoinRequestHandler &) = delete;
 };
 
 // Short ID Confirm Message Handler

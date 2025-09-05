@@ -27,20 +27,20 @@ struct DeviceInfo
     uint8_t versionMajor;
     uint8_t versionMinor;
     uint16_t versionPatch;
-    uint32_t lastSeenTime; // 最后一次通信时间
-    uint32_t announceTime; // 首次宣告时间
-    uint8_t announceCount; // 宣告次数
-    bool shortIdAssigned;  // 是否已分配短ID
+    uint32_t lastSeenTime;    // 最后一次通信时间
+    uint32_t joinRequestTime; // 首次宣告时间
+    uint8_t joinRequestCount; // 宣告次数
+    bool shortIdAssigned;     // 是否已分配短ID
 
     DeviceInfo()
         : deviceId(0), shortId(0), online(0), versionMajor(0), versionMinor(0), versionPatch(0), lastSeenTime(0),
-          announceTime(0), announceCount(0), shortIdAssigned(false)
+          joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false)
     {
     }
 
     DeviceInfo(uint32_t id, uint8_t major, uint8_t minor, uint16_t patch)
         : deviceId(id), shortId(0), online(1), versionMajor(major), versionMinor(minor), versionPatch(patch),
-          lastSeenTime(0), announceTime(0), announceCount(0), shortIdAssigned(false)
+          lastSeenTime(0), joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false)
     {
     }
 };
@@ -113,7 +113,7 @@ class DeviceManager
 
     // 设备信息管理
     void addDeviceInfo(uint32_t deviceId, uint8_t versionMajor, uint8_t versionMinor, uint16_t versionPatch);
-    void updateDeviceAnnounce(uint32_t deviceId);
+    void updateDeviceJoinRequest(uint32_t deviceId);
     void removeDeviceInfo(uint32_t deviceId);
     bool shouldAssignShortId(uint32_t deviceId) const;
     uint8_t assignShortId(uint32_t deviceId);

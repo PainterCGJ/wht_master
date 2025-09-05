@@ -49,7 +49,8 @@ void MasterServer::initializeMessageHandlers()
 
 void MasterServer::initializeSlave2MasterHandlers()
 {
-    slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::ANNOUNCE_MSG)] = &AnnounceHandler::getInstance();
+    slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::ANNOUNCE_MSG)] =
+        &JoinRequestHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::SHORT_ID_CONFIRM_MSG)] =
         &ShortIdConfirmHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::RST_RSP_MSG)] =

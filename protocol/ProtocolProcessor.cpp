@@ -181,7 +181,7 @@ std::unique_ptr<Message> ProtocolProcessor::createMessage(PacketId packetId,
                 case Slave2MasterMessageId::PING_RSP_MSG:
                     return std::make_unique<Slave2Master::PingRspMessage>();
                 case Slave2MasterMessageId::ANNOUNCE_MSG:
-                    return std::make_unique<Slave2Master::AnnounceMessage>();
+                    return std::make_unique<Slave2Master::JoinRequestMessage>();
                 case Slave2MasterMessageId::SHORT_ID_CONFIRM_MSG:
                     return std::make_unique<
                         Slave2Master::ShortIdConfirmMessage>();
