@@ -9,6 +9,11 @@ DeviceManager::DeviceManager()
       configuredIntervalMs(0), // 0表示未配置，使用默认值
       nextShortId(SHORT_ID_START), dataCollectionActive(false), cycleState(CollectionCycleState::IDLE)
 {
+    // 初始化短ID池，所有短ID都可用
+    for (uint8_t id = SHORT_ID_START; id <= SHORT_ID_MAX; ++id)
+    {
+        availableShortIds.insert(id);
+    }
 } // 短ID从起始值开始分配
 
 void DeviceManager::addSlave(uint32_t slaveId, uint8_t shortId)
@@ -225,8 +230,25 @@ void DeviceManager::removeDeviceInfo(uint32_t deviceId)
     auto it = deviceInfos.find(deviceId);
     if (it != deviceInfos.end())
     {
+        // 如果设备已分配短ID，释放该短ID
+        if (it->second.shortIdAssigned && it->second.shortId > 0)
+        {
+            uint8_t releasedId = it->second.shortId;
+            availableShortIds.insert(releasedId);
+
+            // 同时从slaveShortIds中移除
+            slaveShortIds.erase(deviceId);
+
+            elog_i("DeviceManager", "Released short ID %d from device 0x%08X (available IDs: %d)", releasedId, deviceId,
+                   static_cast<int>(availableShortIds.size()));
+        }
+
         elog_i("DeviceManager", "Removing device 0x%08X from device list", deviceId);
         deviceInfos.erase(it);
+
+        // 同时从连接状态中移除
+        connectedSlaves.erase(deviceId);
+
         elog_i("DeviceManager", "Device 0x%08X completely removed from all lists", deviceId);
     }
 }
@@ -251,19 +273,23 @@ uint8_t DeviceManager::assignShortId(uint32_t deviceId)
         return 0;
     }
 
-    // 分配短ID
-    uint8_t assignedId = nextShortId++;
+    // 检查是否有可用的短ID
+    if (availableShortIds.empty())
+    {
+        elog_e("DeviceManager", "No available short IDs for device 0x%08X", deviceId);
+        return 0;
+    }
+
+    // 从可用短ID池中取出最小的ID
+    uint8_t assignedId = *availableShortIds.begin();
+    availableShortIds.erase(availableShortIds.begin());
+
     it->second.shortId = assignedId;
     it->second.shortIdAssigned = true;
     it->second.lastSeenTime = getCurrentTimestampMs();
 
-    // 避免短ID溢出，从起始值开始循环
-    if (nextShortId > SHORT_ID_MAX)
-    {
-        nextShortId = SHORT_ID_START;
-    }
-
-    elog_i("DeviceManager", "Assigned short ID %d to device 0x%08X", assignedId, deviceId);
+    elog_i("DeviceManager", "Assigned short ID %d to device 0x%08X (available IDs: %d)", assignedId, deviceId,
+           static_cast<int>(availableShortIds.size()));
 
     return assignedId;
 }
@@ -399,8 +425,13 @@ void DeviceManager::clearAllDevices()
     // 清除从机短ID映射
     slaveShortIds.clear();
 
-    // 重置短ID计数器
+    // 重置短ID计数器和可用短ID池
     nextShortId = SHORT_ID_START;
+    availableShortIds.clear();
+    for (uint8_t id = SHORT_ID_START; id <= SHORT_ID_MAX; ++id)
+    {
+        availableShortIds.insert(id);
+    }
 
     // 清除从机配置和顺序
     clearSlaveConfigs();

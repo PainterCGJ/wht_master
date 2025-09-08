@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -93,6 +94,7 @@ class DeviceManager
     // 设备信息存储
     std::unordered_map<uint32_t, DeviceInfo> deviceInfos; // deviceId -> DeviceInfo
     uint8_t nextShortId;                                  // 下一个可分配的短ID
+    std::set<uint8_t> availableShortIds;                  // 可用短ID池
 
     uint8_t currentMode;          // 0=Conduction, 1=Resistance, 2=Clip
     uint8_t systemRunningStatus;  // 0=Stop, 1=Run, 2=Reset
