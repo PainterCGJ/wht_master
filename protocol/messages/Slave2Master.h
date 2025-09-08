@@ -66,7 +66,7 @@ class ShortIdConfirmMessage : public Message {
 
 class HeartbeatMessage : public Message {
    public:
-    uint8_t reserve;  // 保留字段
+    uint8_t batteryLevel;  // 电池电量 0-100%
 
     std::vector<uint8_t> serialize() const override;
     bool deserialize(const std::vector<uint8_t>& data) override;

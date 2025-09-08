@@ -173,6 +173,7 @@ std::vector<uint8_t> DeviceListResponseMessage::serialize() const {
         result.push_back(device.versionMinor);
         // Write version patch (2 bytes, little endian)
         ByteUtils::writeUint16LE(result, device.versionPatch);
+        result.push_back(device.batteryLevel);
     }
 
     return result;
@@ -187,8 +188,8 @@ bool DeviceListResponseMessage::deserialize(const std::vector<uint8_t> &data) {
 
     size_t offset = 1;
     for (uint8_t i = 0; i < deviceCount; ++i) {
-        if (offset + 10 > data.size())
-            return false; // Each device info is 10 bytes
+        if (offset + 11 > data.size())
+            return false; // Each device info is now 11 bytes (added battery level)
 
         DeviceInfo device;
         device.deviceId = ByteUtils::readUint32LE(data, offset);
@@ -197,9 +198,10 @@ bool DeviceListResponseMessage::deserialize(const std::vector<uint8_t> &data) {
         device.versionMajor = data[offset + 6];
         device.versionMinor = data[offset + 7];
         device.versionPatch = ByteUtils::readUint16LE(data, offset + 8);
+        device.batteryLevel = data[offset + 10];
 
         devices.push_back(device);
-        offset += 10;
+        offset += 11;
     }
 
     return true;

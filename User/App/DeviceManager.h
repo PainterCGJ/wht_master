@@ -31,16 +31,17 @@ struct DeviceInfo
     uint32_t joinRequestTime; // 首次宣告时间
     uint8_t joinRequestCount; // 宣告次数
     bool shortIdAssigned;     // 是否已分配短ID
+    uint8_t batteryLevel;     // 电池电量 0-100%
 
     DeviceInfo()
         : deviceId(0), shortId(0), online(0), versionMajor(0), versionMinor(0), versionPatch(0), lastSeenTime(0),
-          joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false)
+          joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false), batteryLevel(0)
     {
     }
 
     DeviceInfo(uint32_t id, uint8_t major, uint8_t minor, uint16_t patch)
         : deviceId(id), shortId(0), online(1), versionMajor(major), versionMinor(minor), versionPatch(patch),
-          lastSeenTime(0), joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false)
+          lastSeenTime(0), joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false), batteryLevel(0)
     {
     }
 };
@@ -118,7 +119,7 @@ class DeviceManager
     bool shouldAssignShortId(uint32_t deviceId) const;
     uint8_t assignShortId(uint32_t deviceId);
     void confirmShortId(uint32_t deviceId, uint8_t shortId);
-    void updateDeviceLastSeen(uint32_t deviceId);
+    void updateDeviceBatteryLevel(uint32_t deviceId, uint8_t batteryLevel);
     std::vector<DeviceInfo> getAllDeviceInfos() const;
     bool hasDeviceInfo(uint32_t deviceId) const;
     DeviceInfo getDeviceInfo(uint32_t deviceId) const;

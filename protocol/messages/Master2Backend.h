@@ -125,6 +125,7 @@ class DeviceListResponseMessage : public Message {
         uint8_t versionMajor;
         uint8_t versionMinor;
         uint16_t versionPatch;
+        uint8_t batteryLevel;  // 电池电量 0-100%
     };
 
     uint8_t deviceCount;

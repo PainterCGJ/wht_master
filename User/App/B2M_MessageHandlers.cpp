@@ -329,6 +329,7 @@ std::unique_ptr<Message> DeviceListHandler::processMessage(const Message &messag
         responseDevice.versionMajor = deviceInfo.versionMajor;
         responseDevice.versionMinor = deviceInfo.versionMinor;
         responseDevice.versionPatch = deviceInfo.versionPatch;
+        responseDevice.batteryLevel = deviceInfo.batteryLevel;
         response->devices.push_back(responseDevice);
     }
 

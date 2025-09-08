@@ -117,9 +117,6 @@ void ResetResponseHandler::executeActions(uint32_t slaveId, const Message &messa
 
     elog_v("ResetResponseHandler", "Received reset response from slave 0x%08X, status: %d", slaveId, rspMsg->status);
 
-    // 注意：根据新的心跳包机制，只有心跳包才更新lastSeen时间
-    // server->getDeviceManager().updateDeviceLastSeen(slaveId);
-
     // Clear the reset flag for this slave since it has responded
     server->getDeviceManager().clearSlaveResetFlag(slaveId);
 
@@ -146,9 +143,6 @@ void PingResponseHandler::executeActions(uint32_t slaveId, const Message &messag
 
     elog_v("PingResponseHandler", "Received ping response from slave 0x%08X (seq=%d)", slaveId,
            pingRsp->sequenceNumber);
-
-    // 注意：根据新的心跳包机制，只有心跳包才更新lastSeen时间
-    // server->getDeviceManager().updateDeviceLastSeen(slaveId);
 
     // Update ping session success count
     for (auto &session : server->activePingSessions)
@@ -178,8 +172,9 @@ void HeartbeatHandler::executeActions(uint32_t slaveId, const Message &message, 
     if (!heartbeatMsg)
         return;
 
-    elog_v("HeartbeatHandler", "Received heartbeat from slave 0x%08X (reserve=%d)", slaveId, heartbeatMsg->reserve);
+    elog_v("HeartbeatHandler", "Received heartbeat from slave 0x%08X (battery=%d%%)", slaveId,
+           heartbeatMsg->batteryLevel);
 
-    // 心跳包是唯一更新设备最后通信时间的消息
-    server->getDeviceManager().updateDeviceLastSeen(slaveId);
+    // 更新设备电池电量
+    server->getDeviceManager().updateDeviceBatteryLevel(slaveId, heartbeatMsg->batteryLevel);
 }

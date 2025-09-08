@@ -285,13 +285,19 @@ void DeviceManager::confirmShortId(uint32_t deviceId, uint8_t shortId)
     }
 }
 
-void DeviceManager::updateDeviceLastSeen(uint32_t deviceId)
+void DeviceManager::updateDeviceBatteryLevel(uint32_t deviceId, uint8_t batteryLevel)
 {
     auto it = deviceInfos.find(deviceId);
     if (it != deviceInfos.end())
     {
+
+        // update online status
         it->second.lastSeenTime = getCurrentTimestampMs();
         it->second.online = 1;
+
+        // update battery level
+        it->second.batteryLevel = batteryLevel;
+        elog_v("DeviceManager", "Updated battery level for device 0x%08X: %d%%", deviceId, batteryLevel);
     }
 }
 
@@ -322,9 +328,6 @@ void DeviceManager::updateDeviceOnlineStatus(uint32_t timeoutMs)
 
 void DeviceManager::markSlaveControlResponseReceived(uint32_t slaveId)
 {
-    // 更新设备最后通信时间
-    updateDeviceLastSeen(slaveId);
-
     elog_v("DeviceManager", "Marked slave control response received for slave 0x%08X", slaveId);
 }
 
