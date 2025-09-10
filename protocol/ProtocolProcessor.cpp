@@ -696,7 +696,6 @@ bool ProtocolProcessor::reassembleFragments(
     // 查找或创建分片信息
     auto &fragmentInfo = fragmentMap_[fragmentId];
     fragmentInfo.packetId = frame.packetId;
-    // fragmentInfo.timestamp = hal_hptimer_get_us64();
 
     // 存储分片数据
     fragmentInfo.fragments[frame.fragmentsSequence] = frame.payload;

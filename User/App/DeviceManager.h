@@ -73,9 +73,9 @@ inline uint32_t getCurrentTimestampMs()
     return hal_hptimer_get_ms();
 }
 
-inline uint32_t getCurrentTimestampUs()
+inline uint64_t getCurrentTimestampUs()
 {
-    return hal_hptimer_get_us();
+    return hal_hptimer_get_us64();
 }
 
 // Device management for tracking connected slaves
@@ -121,7 +121,7 @@ class DeviceManager
     bool shouldAssignShortId(uint32_t deviceId) const;
     uint8_t assignShortId(uint32_t deviceId);
     void confirmShortId(uint32_t deviceId, uint8_t shortId);
-    void updateDeviceBatteryLevel(uint32_t deviceId, uint8_t batteryLevel);
+    void updateSlaveHeartbeat(uint32_t deviceId, uint8_t batteryLevel);
     std::vector<DeviceInfo> getAllDeviceInfos() const;
     bool hasDeviceInfo(uint32_t deviceId) const;
     DeviceInfo getDeviceInfo(uint32_t deviceId) const;

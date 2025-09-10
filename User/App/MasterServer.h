@@ -53,12 +53,6 @@ class MasterServer
     bool sendToBackend(std::vector<uint8_t> &frame);
 
     /**
-     * 检查UWB模块健康状态并尝试恢复
-     * @return 是否健康或恢复成功
-     */
-    bool checkAndRecoverUWBHealth();
-
-    /**
      * 后端到主机数据处理任务类 (处理从后端接收到的数据)
      */
     class SlaveDataProcT : public TaskClassS<2048>

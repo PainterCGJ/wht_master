@@ -311,7 +311,7 @@ void DeviceManager::confirmShortId(uint32_t deviceId, uint8_t shortId)
     }
 }
 
-void DeviceManager::updateDeviceBatteryLevel(uint32_t deviceId, uint8_t batteryLevel)
+void DeviceManager::updateSlaveHeartbeat(uint32_t deviceId, uint8_t batteryLevel)
 {
     auto it = deviceInfos.find(deviceId);
     if (it != deviceInfos.end())
@@ -319,6 +319,9 @@ void DeviceManager::updateDeviceBatteryLevel(uint32_t deviceId, uint8_t batteryL
 
         // update online status
         it->second.lastSeenTime = getCurrentTimestampMs();
+        // log.i deviceID and lastSeenTime
+        elog_i("DeviceManager", "Updated heartbeat for device 0x%08X (lastSeenTime: %u)", deviceId,
+               it->second.lastSeenTime);
         it->second.online = 1;
 
         // update battery level

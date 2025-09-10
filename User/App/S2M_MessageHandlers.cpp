@@ -176,5 +176,5 @@ void HeartbeatHandler::executeActions(uint32_t slaveId, const Message &message, 
            heartbeatMsg->batteryLevel);
 
     // 更新设备电池电量
-    server->getDeviceManager().updateDeviceBatteryLevel(slaveId, heartbeatMsg->batteryLevel);
+    server->getDeviceManager().updateSlaveHeartbeat(slaveId, heartbeatMsg->batteryLevel);
 }

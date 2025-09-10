@@ -15,14 +15,14 @@ extern "C"
 
 static volatile bool s_initialized = false;
 
-uint32_t hal_hptimer_get_us(void)
+static uint32_t hal_hptimer_get_us(void)
 {
     return __HAL_TIM_GET_COUNTER(&htim2);
 }
 
 uint32_t hal_hptimer_get_ms(void)
 {
-    return hal_hptimer_get_us() / 1000;
+    return hal_hptimer_get_us64() / 1000;
 }
 
 uint64_t hal_hptimer_get_us64(void)

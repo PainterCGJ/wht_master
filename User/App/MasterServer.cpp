@@ -896,7 +896,7 @@ void MasterServer::processTimeSync()
         syncCmd->interval = dm.getEffectiveInterval();
 
         // 当前时间和启动时间（微秒）
-        uint64_t timestampUs = hal_hptimer_get_us();
+        uint64_t timestampUs = hal_hptimer_get_us64();
         syncCmd->currentTime = timestampUs;
 
         // 启动时间设置为当前时间加上启动延迟时间
@@ -1029,26 +1029,6 @@ bool MasterServer::sendToSlave(std::vector<uint8_t> &frame)
 
     // 发送成功，重置失败计数
     consecutiveFailures = 0;
-    return true;
-}
-
-bool MasterServer::checkAndRecoverUWBHealth()
-{
-    // static uint32_t lastHealthCheck = 0;
-    // static uint32_t uwbResetCount = 0;
-    // const uint32_t HEALTH_CHECK_INTERVAL = UWB_HEALTH_CHECK_INTERVAL_MS; // UWB健康检查间隔
-
-    // uint32_t currentTime = getCurrentTimestampMs();
-
-    // // 定期健康检查
-    // if (currentTime - lastHealthCheck < HEALTH_CHECK_INTERVAL)
-    // {
-    //     return true; // 还未到检查时间
-    // }
-
-    // lastHealthCheck = currentTime;
-
-    // elog_i(TAG, "UWB health check completed, reset count: %d", uwbResetCount);
     return true;
 }
 
@@ -1193,8 +1173,6 @@ void MasterServer::MainTask::task()
 {
     elog_i(TAG, "MainTask started and running");
 
-    uint32_t lastDeviceStatusCheck = 0;
-    uint32_t deviceStatusCheckInterval = DEVICE_STATUS_CHECK_INTERVAL_MS; // 设备状态检查间隔
     uint32_t lastDeviceCleanup = 0;
     uint32_t deviceCleanupInterval = DEVICE_CLEANUP_INTERVAL_MS; // 设备清理间隔
 
@@ -1206,22 +1184,7 @@ void MasterServer::MainTask::task()
         parent.processPendingCommands();
         parent.processPingSessions();
         parent.processPendingBackendResponses();
-
-        // Process data collection (simplified for push-based architecture)
-        if (parent.getDeviceManager().isDataCollectionActive())
-        {
-            // Data collection is now handled by slaves automatically pushing
-            // data No complex state management needed here
-        }
-
         parent.processTimeSync();
-
-        // 定期检查设备在线状态(discarded)
-        if (currentTime - lastDeviceStatusCheck >= deviceStatusCheckInterval)
-        {
-            parent.getDeviceManager().updateDeviceOnlineStatus();
-            lastDeviceStatusCheck = currentTime;
-        }
 
         // 定期清理超时设备（删除而不是标记离线）
         if (currentTime - lastDeviceCleanup >= deviceCleanupInterval)
@@ -1229,9 +1192,6 @@ void MasterServer::MainTask::task()
             parent.getDeviceManager().cleanupExpiredDevices(DEVICE_TIMEOUT_MS); // 设备超时删除
             lastDeviceCleanup = currentTime;
         }
-
-        // 定期检查UWB模块健康状态
-        parent.checkAndRecoverUWBHealth();
 
         TaskBase::delay(TASK_DELAY_MS);
     }

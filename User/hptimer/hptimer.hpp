@@ -8,11 +8,11 @@
 extern "C" {
 #endif
 
-/**
- * @brief 获取当前时间（单位：微秒）
- * @return 以微秒为单位的 32 位计数值（1μs 精度）
- */
-uint32_t hal_hptimer_get_us(void);
+// /**
+//  * @brief 获取当前时间（单位：微秒）
+//  * @return 以微秒为单位的 32 位计数值（1μs 精度）
+//  */
+// uint32_t hal_hptimer_get_us(void);
 
 /**
  * @brief 获取当前时间（单位：毫秒）
