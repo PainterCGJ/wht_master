@@ -156,7 +156,7 @@ class ProtocolProcessor {
         5000;                                  // 分片超时时间（毫秒）
     static constexpr size_t DEFAULT_MTU = 100; // 默认MTU大小
     static constexpr size_t MAX_RECEIVE_BUFFER_SIZE =
-        4096; // 最大接收缓冲区大小
+        8192; // 最大接收缓冲区大小
 };
 
 } // namespace WhtsProtocol
