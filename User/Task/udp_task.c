@@ -12,8 +12,8 @@
 #include "udp_task.h"
 
 #define UDP_SERVER_PORT 8080
-#define TX_QUEUE_SIZE 10
-#define RX_QUEUE_SIZE 10
+#define TX_QUEUE_SIZE 2*10
+#define RX_QUEUE_SIZE 2*10
 
 // 消息类型定义
 typedef enum
