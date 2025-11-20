@@ -1,6 +1,7 @@
 add_subdirectory(App)
 add_subdirectory(Task)
 add_subdirectory(hptimer)
+add_subdirectory(freertos_new)
 
 if(UWB_CHIP_TYPE STREQUAL "DW1000")
   add_subdirectory(Dw1000)
