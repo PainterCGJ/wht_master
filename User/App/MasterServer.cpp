@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "FreeRTOS.h"
 #include "MutexCPP.h"
 #include "elog.h"
 #include "hptimer.hpp"
@@ -1206,6 +1207,9 @@ void MasterServer::MainTask::task()
     uint32_t lastDeviceCleanup = 0;
     uint32_t deviceCleanupInterval = DEVICE_CLEANUP_INTERVAL_MS; // 设备清理间隔
 
+    uint32_t lastStackInfoPrint = 0;
+    const uint32_t stackInfoPrintInterval = 5000; // 5秒输出一次堆栈信息
+
     for (;;)
     {
         uint32_t currentTime = getCurrentTimestampMs();
@@ -1223,8 +1227,40 @@ void MasterServer::MainTask::task()
             lastDeviceCleanup = currentTime;
         }
 
+        // 每5秒输出一次系统堆栈信息
+        if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
+        {
+            parent.printSystemStackInfo();
+            lastStackInfoPrint = currentTime;
+        }
+
         TaskBase::delay(TASK_DELAY_MS);
     }
+}
+
+// 打印系统堆栈信息
+void MasterServer::printSystemStackInfo() const
+{
+    // 获取当前剩余堆栈大小
+    size_t freeHeapSize = xPortGetFreeHeapSize();
+
+    // 获取历史最小剩余堆栈大小
+    size_t minEverFreeHeapSize = xPortGetMinimumEverFreeHeapSize();
+
+    // 计算堆栈使用率（使用配置的总堆栈大小）
+    const size_t totalHeapSize = configTOTAL_HEAP_SIZE;
+    uint32_t usagePercent = 0;
+    if (totalHeapSize > 0)
+    {
+        usagePercent = ((totalHeapSize - freeHeapSize) * 100) / totalHeapSize;
+    }
+
+    elog_i(TAG, "=== System Heap Stack Info ===");
+    elog_i(TAG, "Total Heap: %lu bytes", (unsigned long)totalHeapSize);
+    elog_i(TAG, "Free Heap: %lu bytes", (unsigned long)freeHeapSize);
+    elog_i(TAG, "Min Ever Free: %lu bytes", (unsigned long)minEverFreeHeapSize);
+    elog_i(TAG, "Usage: %lu%%", (unsigned long)usagePercent);
+    elog_i(TAG, "=============================");
 }
 
 // MasterServer run方法实现

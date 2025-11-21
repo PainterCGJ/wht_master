@@ -150,6 +150,9 @@ class MasterServer
     // Register message handlers
     void registerMessageHandler(uint8_t messageId, std::unique_ptr<IMessageHandler> handler);
 
+    // System stack info printing
+    void printSystemStackInfo() const;
+
   private:
     // O(1) lookup, no heap allocation for Backend2Master
     IMessageHandler *messageHandlers_[256] = {};
