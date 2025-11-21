@@ -330,6 +330,18 @@ void DeviceManager::updateSlaveHeartbeat(uint32_t deviceId, uint8_t batteryLevel
     }
 }
 
+void DeviceManager::updateDeviceLastSeenTime(uint32_t deviceId)
+{
+    auto it = deviceInfos.find(deviceId);
+    if (it != deviceInfos.end())
+    {
+        it->second.lastSeenTime = getCurrentTimestampMs();
+        it->second.online = 1;
+        elog_v("DeviceManager", "Updated lastSeenTime for device 0x%08X (lastSeenTime: %u)", deviceId,
+               it->second.lastSeenTime);
+    }
+}
+
 std::vector<DeviceInfo> DeviceManager::getAllDeviceInfos() const
 {
     std::vector<DeviceInfo> result;

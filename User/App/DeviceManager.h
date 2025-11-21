@@ -122,6 +122,7 @@ class DeviceManager
     uint8_t assignShortId(uint32_t deviceId);
     void confirmShortId(uint32_t deviceId, uint8_t shortId);
     void updateSlaveHeartbeat(uint32_t deviceId, uint8_t batteryLevel);
+    void updateDeviceLastSeenTime(uint32_t deviceId); // 更新设备最后通信时间
     std::vector<DeviceInfo> getAllDeviceInfos() const;
     bool hasDeviceInfo(uint32_t deviceId) const;
     DeviceInfo getDeviceInfo(uint32_t deviceId) const;

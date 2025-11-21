@@ -1105,10 +1105,42 @@ void MasterServer::SlaveDataProcT::task()
                     uint8_t packetId = recvData[frameStart + 2];
                     if (packetId == static_cast<uint8_t>(PacketId::SLAVE_TO_BACKEND))
                     {
-                        // 找到SLAVE_TO_BACKEND帧，直接透传原始数据
+                        // 找到SLAVE_TO_BACKEND帧，提取从机ID并更新lastSeenTime
                         hasSlaveToBackendFrame = true;
                         elog_v(TAG, "Found SLAVE_TO_BACKEND frame, forwarding raw "
                                     "data");
+
+                        // 提取帧长度
+                        if (frameStart + 7 <= recvData.size())
+                        {
+                            uint16_t frameLength = recvData[frameStart + 5] | (recvData[frameStart + 6] << 8);
+                            size_t frameEnd = frameStart + 7 + frameLength;
+
+                            // 检查帧是否完整
+                            if (frameEnd <= recvData.size())
+                            {
+                                // 提取payload（跳过帧头7字节）
+                                std::vector<uint8_t> payload(recvData.begin() + frameStart + 7,
+                                                             recvData.begin() + frameEnd);
+
+                                // 解析payload提取从机ID
+                                uint32_t slaveId = 0;
+                                WhtsProtocol::DeviceStatus deviceStatus;
+                                std::unique_ptr<WhtsProtocol::Message> message;
+
+                                if (parent.processor.parseSlave2BackendPacket(payload, slaveId, deviceStatus, message))
+                                {
+                                    // 更新从机的lastSeenTime
+                                    parent.getDeviceManager().updateDeviceLastSeenTime(slaveId);
+                                    elog_v(TAG, "Updated lastSeenTime for slave 0x%08X from SLAVE_TO_BACKEND data",
+                                           slaveId);
+                                }
+                                else
+                                {
+                                    elog_w(TAG, "Failed to parse SLAVE_TO_BACKEND packet payload to extract slave ID");
+                                }
+                            }
+                        }
 
                         // 直接透传原始接收数据给后端
                         if (parent.sendToBackend(recvData))
