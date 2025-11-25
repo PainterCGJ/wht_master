@@ -198,6 +198,7 @@ static void uwb_comm_task(void *argument)
 #elif UWB_CHIP_TYPE_CX310
 
 #define UWB_TX_DELAY_MS 0
+#define UWB_TX_INTERVAL_MS 10 // 从队列提取数据的时间间隔
 
 static void uwb_comm_task(void *argument)
 {
@@ -220,55 +221,79 @@ static void uwb_comm_task(void *argument)
     osDelay(3);
     uwb->set_recv_mode();
 
+    // 记录上次从队列提取数据的时间
+    uint32_t last_tx_check_time = osKernelGetTickCount();
+
     for (;;)
     {
-        // 等待发送信号量，确保队列中有完整的数据
-        if (osSemaphoreAcquire(uwb_txSemaphore, 0) == osOK)
+        // 检查是否到了从队列提取数据的时间间隔（10ms）
+        uint32_t current_time = osKernelGetTickCount();
+        uint32_t elapsed_time = current_time - last_tx_check_time;
+
+        // 如果已经过了10ms，尝试从队列提取数据（非阻塞）
+        if (elapsed_time >= UWB_TX_INTERVAL_MS)
         {
-            // 从队列获取发送消息
-            if (osMessageQueueGet(uwb_txQueue, tx_msg.get(), NULL, 0) == osOK)
+            // 等待发送信号量，确保队列中有完整的数据（非阻塞）
+            if (osSemaphoreAcquire(uwb_txSemaphore, 0) == osOK)
             {
-                switch (tx_msg->type)
+                // 从队列获取发送消息（非阻塞）
+                if (osMessageQueueGet(uwb_txQueue, tx_msg.get(), NULL, 0) == osOK)
                 {
-                case UWB_MSG_TYPE_SEND_DATA:
-                    // 发送UWB数据
+                    switch (tx_msg->type)
                     {
-                        std::vector<uint8_t> tx_data(tx_msg->data, tx_msg->data + tx_msg->data_len);
-                        elog_i(TAG, "tx begin");
-                        uwb->update();
-                        uwb->data_transmit(tx_data);
-                        // 发送完成后重新启动接收
-                        // uwb.set_recv_mode();
-                    }
-                    break;
-                case UWB_MSG_TYPE_SET_CHANNEL:
-                    // 设置UWB信道
-                    if (tx_msg->data_len >= 1)
-                    {
-                        uint8_t channel = tx_msg->data[0];
-                        elog_i(TAG, "Setting UWB channel to %d", channel);
-                        uwb->update();
-                        if (uwb->set_channel(channel))
+                    case UWB_MSG_TYPE_SEND_DATA:
+                        // 发送UWB数据
                         {
-                            elog_i(TAG, "UWB channel set to %d successfully", channel);
+                            std::vector<uint8_t> tx_data(tx_msg->data, tx_msg->data + tx_msg->data_len);
+                            elog_i(TAG, "tx begin");
+                            uwb->update();
+                            uwb->data_transmit(tx_data);
+                            // 发送完成后重新启动接收
+                            // uwb.set_recv_mode();
                         }
-                        else
+                        break;
+                    case UWB_MSG_TYPE_SET_CHANNEL:
+                        // 设置UWB信道
+                        if (tx_msg->data_len >= 1)
                         {
-                            elog_e(TAG, "Failed to set UWB channel to %d", channel);
+                            uint8_t channel = tx_msg->data[0];
+                            elog_i(TAG, "Setting UWB channel to %d", channel);
+                            uwb->update();
+                            if (uwb->set_channel(channel))
+                            {
+                                elog_i(TAG, "UWB channel set to %d successfully", channel);
+                            }
+                            else
+                            {
+                                elog_e(TAG, "Failed to set UWB channel to %d", channel);
+                            }
+                            // 重新启动接收模式
+                            uwb->set_recv_mode();
                         }
-                        // 重新启动接收模式
-                        uwb->set_recv_mode();
+                        break;
+                    case UWB_MSG_TYPE_CONFIG:
+                    case UWB_MSG_TYPE_SET_MODE:
+                    default:
+                        elog_w(TAG, "Unhandled message type: %d", tx_msg->type);
+                        break;
                     }
-                    break;
-                case UWB_MSG_TYPE_CONFIG:
-                case UWB_MSG_TYPE_SET_MODE:
-                default:
-                    elog_w(TAG, "Unhandled message type: %d", tx_msg->type);
-                    break;
+                    // 更新上次提取数据的时间
+                    last_tx_check_time = current_time;
                 }
+                else
+                {
+                    // 队列为空，但已经过了时间间隔，更新检查时间
+                    last_tx_check_time = current_time;
+                }
+            }
+            else
+            {
+                // 没有信号量，但已经过了时间间隔，更新检查时间
+                last_tx_check_time = current_time;
             }
         }
 
+        // 检查接收数据（不阻塞，不影响接收）
         if (uwb->get_recv_data(buffer))
         {
             // uwb->set_recv_mode();
