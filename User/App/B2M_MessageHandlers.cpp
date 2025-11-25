@@ -39,14 +39,27 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
     if (!configMsg)
         return;
 
-    // Clear existing configurations to ensure proper order
-    server->getDeviceManager().clearSlaveConfigs();
+    auto &deviceManager = server->getDeviceManager();
+
+    // 只要后端向主机发送设备配置，设备列表就不需要变动
+    // 不清除现有配置，只更新或添加新的配置
+    // 使用设备ID统一管理，不再分配短ID
 
     // Store slave configurations in device manager
     for (const auto &slave : configMsg->slaves)
     {
-        server->getDeviceManager().addSlave(slave.id);
-        server->getDeviceManager().setSlaveConfig(slave.id, slave);
+        // 添加从机到连接列表（使用设备ID管理）
+        deviceManager.addSlave(slave.id, 0); // 不再使用短ID，传入0
+        deviceManager.setSlaveConfig(slave.id, slave);
+
+        // 如果设备信息不存在，创建基本的设备信息（不分配短ID）
+        if (!deviceManager.hasDeviceInfo(slave.id))
+        {
+            // 创建设备信息，版本信息未知，使用默认值
+            deviceManager.addDeviceInfo(slave.id, 0, 0, 0);
+            elog_v("SlaveConfigHandler", "Created device info for 0x%08X (no short ID assigned)", slave.id);
+        }
+
         elog_v("SlaveConfigHandler",
                "Stored config for slave 0x%08X: Conduction=%d, Resistance=%d, "
                "ClipMode=%d",
@@ -215,7 +228,10 @@ void ControlHandler::executeActions(const Message &message, MasterServer *server
         // 停止所有数据采集
         deviceManager.resetDataCollection();
 
-        elog_v("ControlHandler", "Data collection stopped, stop commands sent to slaves");
+        // 停止检测了，关闭掉线判断
+        deviceManager.disableOfflineCheck();
+
+        elog_v("ControlHandler", "Data collection stopped, offline check disabled");
         break;
 
     case SYSTEM_STATUS_RUN: // 启动
@@ -224,15 +240,21 @@ void ControlHandler::executeActions(const Message &message, MasterServer *server
         // 根据当前模式启动相应操作
         if (deviceManager.getCurrentMode() <= MODE_CLIP)
         { // 导通、阻值、卡钉检测模式
+            // 在开始检测时，将设备列表里的所有设备的最后一次通信时间设置为当前时间
+            deviceManager.resetAllDevicesLastSeenTime();
+
             // 启动数据采集模式
             deviceManager.startDataCollection();
+
+            // 启用掉线判断（只在检测运行时启用）
+            deviceManager.enableOfflineCheck();
 
             // 通过TDMA同步消息向所有从机启动采集
             server->startSlaveDataCollection();
 
             elog_v("ControlHandler",
-                   "Started data collection in mode %d, slave control "
-                   "commands sent",
+                   "Started data collection in mode %d, offline check enabled, "
+                   "slave control commands sent",
                    deviceManager.getCurrentMode());
         }
         else

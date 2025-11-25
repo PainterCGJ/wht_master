@@ -7,9 +7,10 @@
 DeviceManager::DeviceManager()
     : currentMode(MODE_CONDUCTION), systemRunningStatus(SYSTEM_STATUS_STOP),
       configuredIntervalMs(0), // 0表示未配置，使用默认值
-      nextShortId(SHORT_ID_START), dataCollectionActive(false), cycleState(CollectionCycleState::IDLE)
+      nextShortId(SHORT_ID_START), dataCollectionActive(false), cycleState(CollectionCycleState::IDLE),
+      offlineCheckEnabled(false) // 默认关闭掉线判断
 {
-    // 初始化短ID池，所有短ID都可用
+    // 初始化短ID池，所有短ID都可用（虽然不再使用短ID，但保留代码以保持兼容性）
     for (uint8_t id = SHORT_ID_START; id <= SHORT_ID_MAX; ++id)
     {
         availableShortIds.insert(id);
@@ -60,6 +61,13 @@ std::vector<uint32_t> DeviceManager::getConnectedSlavesInConfigOrder() const
         }
     }
     return result;
+}
+
+std::vector<uint32_t> DeviceManager::getAllSlavesInConfigOrder() const
+{
+    // 返回所有配置列表中的设备（包括离线设备）
+    // 若设备掉线，不在设备列表中将其删除，下一次发送同步帧时依旧将该设备的设备配置发送出去
+    return slaveConfigOrder;
 }
 
 uint8_t DeviceManager::getSlaveShortId(uint32_t slaveId) const
@@ -342,6 +350,56 @@ void DeviceManager::updateDeviceLastSeenTime(uint32_t deviceId)
     }
 }
 
+void DeviceManager::updateDeviceOnlineStatusFromDetectionData(uint32_t deviceId)
+{
+    // 通过检测数据更新设备在线状态
+    // 设备是否在线只通过是否有检测数据上传来判断，并且收到检测数据后更新最后一次通信时间
+    auto it = deviceInfos.find(deviceId);
+    if (it != deviceInfos.end())
+    {
+        uint32_t currentTime = getCurrentTimestampMs();
+        it->second.lastSeenTime = currentTime;
+        it->second.online = 1; // 收到检测数据，标记为在线
+        elog_v("DeviceManager", "Updated device 0x%08X online status from detection data (lastSeenTime: %u)", deviceId,
+               currentTime);
+    }
+    else
+    {
+        // 如果设备不在列表中，可能是新设备，但根据需求，设备列表由后端配置决定
+        elog_w("DeviceManager", "Received detection data from unknown device 0x%08X", deviceId);
+    }
+}
+
+void DeviceManager::resetAllDevicesLastSeenTime()
+{
+    // 在开始检测时，将设备列表里的所有设备的最后一次通信时间设置为当前时间
+    uint32_t currentTime = getCurrentTimestampMs();
+    for (auto &pair : deviceInfos)
+    {
+        pair.second.lastSeenTime = currentTime;
+        pair.second.online = 1; // 重置时标记为在线
+        elog_v("DeviceManager", "Reset lastSeenTime for device 0x%08X to %u", pair.first, currentTime);
+    }
+    elog_i("DeviceManager", "Reset lastSeenTime for all %d devices", static_cast<int>(deviceInfos.size()));
+}
+
+void DeviceManager::enableOfflineCheck()
+{
+    offlineCheckEnabled = true;
+    elog_i("DeviceManager", "Offline check enabled");
+}
+
+void DeviceManager::disableOfflineCheck()
+{
+    offlineCheckEnabled = false;
+    elog_i("DeviceManager", "Offline check disabled");
+}
+
+bool DeviceManager::isOfflineCheckEnabled() const
+{
+    return offlineCheckEnabled;
+}
+
 std::vector<DeviceInfo> DeviceManager::getAllDeviceInfos() const
 {
     std::vector<DeviceInfo> result;
@@ -365,6 +423,28 @@ DeviceInfo DeviceManager::getDeviceInfo(uint32_t deviceId) const
 
 void DeviceManager::updateDeviceOnlineStatus(uint32_t timeoutMs)
 {
+    // 只有在掉线判断启用时才执行检查
+    if (!offlineCheckEnabled)
+    {
+        return;
+    }
+
+    uint32_t currentTime = getCurrentTimestampMs();
+
+    // 检查所有设备，标记超时设备为离线（不删除）
+    for (auto &pair : deviceInfos)
+    {
+        DeviceInfo &info = pair.second;
+        if (currentTime - info.lastSeenTime > timeoutMs)
+        {
+            // 设备超时，标记为离线，但不删除
+            if (info.online != 0)
+            {
+                info.online = 0;
+                elog_w("DeviceManager", "Device 0x%08X marked as offline (timeout: %u ms)", pair.first, timeoutMs);
+            }
+        }
+    }
 }
 
 void DeviceManager::markSlaveControlResponseReceived(uint32_t slaveId)
@@ -374,33 +454,11 @@ void DeviceManager::markSlaveControlResponseReceived(uint32_t slaveId)
 
 void DeviceManager::cleanupExpiredDevices(uint32_t timeoutMs)
 {
-    uint32_t currentTime = getCurrentTimestampMs();
-    std::vector<uint32_t> devicesToRemove;
-
-    // 收集需要删除的设备ID
-    for (const auto &pair : deviceInfos)
-    {
-        const DeviceInfo &info = pair.second;
-        if (currentTime - info.lastSeenTime > timeoutMs)
-        {
-            devicesToRemove.push_back(info.deviceId);
-        }
-    }
-
-    // 删除超时的设备
-    for (uint32_t deviceId : devicesToRemove)
-    {
-        elog_w("DeviceManager",
-               "Device 0x%08X expired after %u ms of inactivity, removing from "
-               "device list",
-               deviceId, timeoutMs);
-        removeDeviceInfo(deviceId);
-    }
-
-    if (!devicesToRemove.empty())
-    {
-        elog_i("DeviceManager", "Cleaned up %d expired devices", static_cast<int>(devicesToRemove.size()));
-    }
+    // 已废弃：不再删除设备，只标记为离线
+    // 设备掉线时不在设备列表中将其删除，下一次发送同步帧时依旧将该设备的设备配置发送出去
+    elog_v("DeviceManager",
+           "cleanupExpiredDevices called but device removal is disabled - devices are only marked offline");
+    updateDeviceOnlineStatus(timeoutMs);
 }
 
 // 从机复位状态管理方法实现

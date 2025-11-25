@@ -50,10 +50,11 @@ void MasterServer::initializeMessageHandlers()
 
 void MasterServer::initializeSlave2MasterHandlers()
 {
-    slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::ANNOUNCE_MSG)] =
-        &JoinRequestHandler::getInstance();
-    slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::SHORT_ID_CONFIRM_MSG)] =
-        &ShortIdConfirmHandler::getInstance();
+    // 从机已关闭入网宣告功能，主机不再处理ANNOUNCE_MSG和SHORT_ID_CONFIRM_MSG
+    // slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::ANNOUNCE_MSG)] =
+    //     &JoinRequestHandler::getInstance();
+    // slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::SHORT_ID_CONFIRM_MSG)] =
+    //     &ShortIdConfirmHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::RST_RSP_MSG)] =
         &ResetResponseHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::PING_RSP_MSG)] =
@@ -924,16 +925,17 @@ void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage &syncMsg, 
 {
     syncMsg.slaveConfigs.clear();
 
-    // 获取按配置顺序排列的已连接从机
-    auto connectedSlaves = dm.getConnectedSlavesInConfigOrder();
+    // 获取按配置顺序排列的所有从机（包括离线设备）
+    // 若设备掉线，不在设备列表中将其删除，下一次发送同步帧时依旧将该设备的设备配置发送出去
+    auto allSlaves = dm.getAllSlavesInConfigOrder();
 
     uint8_t timeSlot = 0; // 时隙从0开始分配
 
-    for (uint32_t slaveId : connectedSlaves)
+    for (uint32_t slaveId : allSlaves)
     {
         if (!dm.hasSlaveConfig(slaveId))
         {
-            elog_w(TAG, "Slave 0x%08X connected but no config found, skipping", slaveId);
+            elog_w(TAG, "Slave 0x%08X in config order but no config found, skipping", slaveId);
             continue;
         }
 
@@ -970,8 +972,16 @@ void MasterServer::buildSlaveConfigsForSync(Master2Slave::SyncMessage &syncMsg, 
 
         syncMsg.slaveConfigs.push_back(config);
 
-        elog_v(TAG, "Added slave 0x%08X to sync: timeSlot=%d, reset=%d, testCount=%d (mode=%d)", slaveId,
-               config.timeSlot, config.reset, config.testCount, dm.getCurrentMode());
+        // 检查设备是否在线
+        bool isOnline = false;
+        if (dm.hasDeviceInfo(slaveId))
+        {
+            auto deviceInfo = dm.getDeviceInfo(slaveId);
+            isOnline = (deviceInfo.online != 0);
+        }
+
+        elog_v(TAG, "Added slave 0x%08X to sync: timeSlot=%d, reset=%d, testCount=%d (mode=%d, online=%d)", slaveId,
+               config.timeSlot, config.reset, config.testCount, dm.getCurrentMode(), isOnline ? 1 : 0);
     }
 
     elog_v(TAG, "Built sync message with %d slave configurations", static_cast<int>(syncMsg.slaveConfigs.size()));
@@ -1130,10 +1140,13 @@ void MasterServer::SlaveDataProcT::task()
 
                                 if (parent.processor.parseSlave2BackendPacket(payload, slaveId, deviceStatus, message))
                                 {
-                                    // 更新从机的lastSeenTime
-                                    parent.getDeviceManager().updateDeviceLastSeenTime(slaveId);
-                                    elog_v(TAG, "Updated lastSeenTime for slave 0x%08X from SLAVE_TO_BACKEND data",
-                                           slaveId);
+                                    // 通过检测数据更新设备在线状态
+                                    // 设备是否在线只通过是否有检测数据上传来判断，并且收到检测数据后更新最后一次通信时间
+                                    parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(slaveId);
+                                    elog_v(
+                                        TAG,
+                                        "Updated online status for slave 0x%08X from SLAVE_TO_BACKEND detection data",
+                                        slaveId);
                                 }
                                 else
                                 {
@@ -1252,10 +1265,14 @@ void MasterServer::MainTask::task()
         parent.processPendingBackendResponses();
         parent.processTimeSync();
 
-        // 定期清理超时设备（删除而不是标记离线）
+        // 定期检查设备在线状态（只在检测运行时执行）
         if (currentTime - lastDeviceCleanup >= deviceCleanupInterval)
         {
-            parent.getDeviceManager().cleanupExpiredDevices(DEVICE_TIMEOUT_MS); // 设备超时删除
+            // 只有在掉线判断启用时才检查设备在线状态
+            if (parent.getDeviceManager().isOfflineCheckEnabled())
+            {
+                parent.getDeviceManager().updateDeviceOnlineStatus(DEVICE_TIMEOUT_MS); // 检查并标记离线设备（不删除）
+            }
             lastDeviceCleanup = currentTime;
         }
 

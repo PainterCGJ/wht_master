@@ -103,6 +103,7 @@ class DeviceManager
     // 数据采集管理 (简化版)
     bool dataCollectionActive;
     CollectionCycleState cycleState; // 当前采集周期状态 (只有IDLE和COLLECTING)
+    bool offlineCheckEnabled;        // 掉线判断是否启用（只在检测运行时启用）
 
   public:
     DeviceManager();
@@ -112,6 +113,7 @@ class DeviceManager
     bool isSlaveConnected(uint32_t slaveId) const;
     std::vector<uint32_t> getConnectedSlaves() const;
     std::vector<uint32_t> getConnectedSlavesInConfigOrder() const;
+    std::vector<uint32_t> getAllSlavesInConfigOrder() const; // 获取所有配置列表中的设备（包括离线设备）
     uint8_t getSlaveShortId(uint32_t slaveId) const;
 
     // 设备信息管理
@@ -122,13 +124,18 @@ class DeviceManager
     uint8_t assignShortId(uint32_t deviceId);
     void confirmShortId(uint32_t deviceId, uint8_t shortId);
     void updateSlaveHeartbeat(uint32_t deviceId, uint8_t batteryLevel);
-    void updateDeviceLastSeenTime(uint32_t deviceId); // 更新设备最后通信时间
+    void updateDeviceLastSeenTime(uint32_t deviceId);                  // 更新设备最后通信时间
+    void updateDeviceOnlineStatusFromDetectionData(uint32_t deviceId); // 通过检测数据更新设备在线状态
     std::vector<DeviceInfo> getAllDeviceInfos() const;
     bool hasDeviceInfo(uint32_t deviceId) const;
     DeviceInfo getDeviceInfo(uint32_t deviceId) const;
-    void updateDeviceOnlineStatus(uint32_t timeoutMs = 30000); // 检查设备在线状态
-    void cleanupExpiredDevices(uint32_t timeoutMs = 60000);    // 清理超时设备（删除而不是标记离线）
+    void updateDeviceOnlineStatus(uint32_t timeoutMs = 30000); // 检查设备在线状态（仅在检测运行时调用）
+    void cleanupExpiredDevices(uint32_t timeoutMs = 60000);    // 清理超时设备（已废弃，不再删除设备）
     void clearAllDevices();                                    // 清除所有设备信息和相关状态
+    void resetAllDevicesLastSeenTime();                        // 重置所有设备的最后通信时间为当前时间
+    void enableOfflineCheck();                                 // 启用掉线判断
+    void disableOfflineCheck();                                // 禁用掉线判断
+    bool isOfflineCheckEnabled() const;                        // 检查掉线判断是否启用
 
     // Configuration management
     void setSlaveConfig(uint32_t slaveId, const Backend2Master::SlaveConfigMessage::SlaveInfo &config);
