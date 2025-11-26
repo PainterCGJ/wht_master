@@ -302,17 +302,27 @@ bool ProtocolProcessor::parseSlave2MasterPacket(
 bool ProtocolProcessor::parseSlave2BackendPacket(
     const std::vector<uint8_t> &payload, uint32_t &slaveId,
     DeviceStatus &deviceStatus, std::unique_ptr<Message> &message) {
-    if (payload.size() < 7) return false;
+    if (payload.size() < 7) {
+        elog_w("ProtocolProcessor", "parseSlave2BackendPacket: payload too small (%d bytes, need at least 7)", payload.size());
+        return false;
+    }
 
     uint8_t messageId = payload[0];
     slaveId = readUint32LE(payload, 1);
     deviceStatus.fromUint16(readUint16LE(payload, 5));
 
     message = createMessage(PacketId::SLAVE_TO_BACKEND, messageId);
-    if (!message) return false;
+    if (!message) {
+        elog_w("ProtocolProcessor", "parseSlave2BackendPacket: failed to create message for messageId=0x%02X (supported: 0x00=CONDUCTION_DATA, 0x01=RESISTANCE_DATA, 0x02=CLIP_DATA)", messageId);
+        return false;
+    }
 
     std::vector<uint8_t> messageData(payload.begin() + 7, payload.end());
-    return message->deserialize(messageData);
+    bool deserializeResult = message->deserialize(messageData);
+    if (!deserializeResult) {
+        elog_w("ProtocolProcessor", "parseSlave2BackendPacket: deserialize failed for messageId=0x%02X, messageData size=%d", messageId, messageData.size());
+    }
+    return deserializeResult;
 }
 
 bool ProtocolProcessor::parseBackend2MasterPacket(
