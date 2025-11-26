@@ -675,17 +675,43 @@ bool ProtocolProcessor::reassembleFragments(
            "more_fragments: %d",
            frame.fragmentsSequence, frame.moreFragmentsFlag);
 
-    // 从帧载荷中提取源ID (假设载荷格式为: MessageId + SourceId + ...)
-    if (frame.payload.size() < 5) {
-        elog_e("ProtocolProcessor",
-               "Fragment payload too small to extract source ID, payload size: "
-               "%d",
-               frame.payload.size());
-        return false;    // 载荷太小
+    // 从帧载荷中提取源ID (只有第一个分片包含完整的MessageId + SourceId格式)
+    uint32_t sourceId = 0;
+    uint8_t messageId = 0;
+    
+    // 只有第一个分片（sequence 0）包含MessageId和SourceId
+    if (frame.fragmentsSequence == 0) {
+        if (frame.payload.size() < 5) {
+            elog_e("ProtocolProcessor",
+                   "First fragment payload too small to extract source ID, payload size: "
+                   "%d",
+                   frame.payload.size());
+            return false;    // 载荷太小
+        }
+        messageId = frame.payload[0];
+        sourceId = readUint32LE(frame.payload, 1);    // 跳过MessageId
+    } else {
+        // 后续分片不包含MessageId和SourceId，需要从已存储的分片信息中获取
+        // 查找是否已有第一个分片的信息
+        uint64_t tempFragmentId = generateFragmentId(frame.packetId);
+        auto it = fragmentMap_.find(tempFragmentId);
+        if (it != fragmentMap_.end() && it->second.fragments.find(0) != it->second.fragments.end()) {
+            // 从第一个分片中提取sourceId
+            const auto &firstFragmentPayload = it->second.fragments[0];
+            if (firstFragmentPayload.size() >= 5) {
+                messageId = firstFragmentPayload[0];
+                sourceId = readUint32LE(firstFragmentPayload, 1);
+            }
+        } else {
+            // 如果还没有第一个分片，无法提取sourceId，但这不应该发生
+            elog_w("ProtocolProcessor",
+                   "Received fragment %d but first fragment not found yet, "
+                   "cannot extract source ID",
+                   frame.fragmentsSequence);
+            // 继续处理，使用packetId作为fragmentId（可能不够唯一，但暂时这样处理）
+        }
     }
-
-    uint8_t messageId = frame.payload[0];
-    uint32_t sourceId = readUint32LE(frame.payload, 1);    // 跳过MessageId
+    
     uint64_t fragmentId = generateFragmentId(frame.packetId);
 
     elog_v("ProtocolProcessor",

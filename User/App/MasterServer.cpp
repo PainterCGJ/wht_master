@@ -912,12 +912,12 @@ void MasterServer::processTimeSync()
 
         lastSyncTime = currentTime;
 
-        elog_v(TAG,
-               "Broadcasted TDMA sync message (mode=%d, interval=%d ms, "
-               "current_time=%lu us, start_time=%lu us, slaves=%d, cycle=%lu ms)",
-               dm.getCurrentMode(), dm.getEffectiveInterval(), (unsigned long)timestampUs,
-               (unsigned long)(timestampUs + startupDelayMs * 1000), static_cast<int>(totalTimeSlots),
-               (unsigned long)tdmaCycleMs);
+        // elog_v(TAG,
+        //        "Broadcasted TDMA sync message (mode=%d, interval=%d ms, "
+        //        "current_time=%lu us, start_time=%lu us, slaves=%d, cycle=%lu ms)",
+        //        dm.getCurrentMode(), dm.getEffectiveInterval(), (unsigned long)timestampUs,
+        //        (unsigned long)(timestampUs + startupDelayMs * 1000), static_cast<int>(totalTimeSlots),
+        //        (unsigned long)tdmaCycleMs);
     }
 }
 
@@ -1117,8 +1117,14 @@ void MasterServer::SlaveDataProcT::task()
                     {
                         // 找到SLAVE_TO_BACKEND帧，提取从机ID并更新lastSeenTime
                         hasSlaveToBackendFrame = true;
-                        elog_v(TAG, "Found SLAVE_TO_BACKEND frame, forwarding raw "
-                                    "data");
+
+                        // 提取分包信息
+                        uint8_t fragmentsSequence = recvData[frameStart + 3];
+                        uint8_t moreFragmentsFlag = recvData[frameStart + 4];
+
+                        elog_v(TAG,
+                               "Found SLAVE_TO_BACKEND frame, fragment_seq=%d, more_fragments=%d, forwarding raw data",
+                               fragmentsSequence, moreFragmentsFlag);
 
                         // 提取帧长度
                         if (frameStart + 7 <= recvData.size())
@@ -1129,28 +1135,41 @@ void MasterServer::SlaveDataProcT::task()
                             // 检查帧是否完整
                             if (frameEnd <= recvData.size())
                             {
-                                // 提取payload（跳过帧头7字节）
-                                std::vector<uint8_t> payload(recvData.begin() + frameStart + 7,
-                                                             recvData.begin() + frameEnd);
-
-                                // 解析payload提取从机ID
-                                uint32_t slaveId = 0;
-                                WhtsProtocol::DeviceStatus deviceStatus;
-                                std::unique_ptr<WhtsProtocol::Message> message;
-
-                                if (parent.processor.parseSlave2BackendPacket(payload, slaveId, deviceStatus, message))
+                                // 只有第一个分片（fragmentsSequence == 0）包含完整的messageId + slaveId + deviceStatus
+                                // 后续分片的payload只是消息内容的一部分，不包含这些信息
+                                if (fragmentsSequence == 0)
                                 {
-                                    // 通过检测数据更新设备在线状态
-                                    // 设备是否在线只通过是否有检测数据上传来判断，并且收到检测数据后更新最后一次通信时间
-                                    parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(slaveId);
-                                    elog_v(
-                                        TAG,
-                                        "Updated online status for slave 0x%08X from SLAVE_TO_BACKEND detection data",
-                                        slaveId);
+                                    // 提取payload（跳过帧头7字节）
+                                    std::vector<uint8_t> payload(recvData.begin() + frameStart + 7,
+                                                                 recvData.begin() + frameEnd);
+
+                                    // 解析payload提取从机ID
+                                    uint32_t slaveId = 0;
+                                    WhtsProtocol::DeviceStatus deviceStatus;
+                                    std::unique_ptr<WhtsProtocol::Message> message;
+
+                                    if (parent.processor.parseSlave2BackendPacket(payload, slaveId, deviceStatus,
+                                                                                  message))
+                                    {
+                                        // 通过检测数据更新设备在线状态
+                                        // 设备是否在线只通过是否有检测数据上传来判断，并且收到检测数据后更新最后一次通信时间
+                                        parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(slaveId);
+                                        elog_v(TAG,
+                                               "Updated online status for slave 0x%08X from SLAVE_TO_BACKEND detection "
+                                               "data",
+                                               slaveId);
+                                    }
+                                    else
+                                    {
+                                        elog_w(TAG,
+                                               "Failed to parse SLAVE_TO_BACKEND packet payload to extract slave ID");
+                                    }
                                 }
                                 else
                                 {
-                                    elog_w(TAG, "Failed to parse SLAVE_TO_BACKEND packet payload to extract slave ID");
+                                    // 后续分片不包含slaveId信息，跳过解析
+                                    elog_v(TAG, "Skipping slave ID extraction for fragment %d (not the first fragment)",
+                                           fragmentsSequence);
                                 }
                             }
                         }
@@ -1252,8 +1271,9 @@ void MasterServer::MainTask::task()
     uint32_t lastDeviceCleanup = 0;
     uint32_t deviceCleanupInterval = DEVICE_CLEANUP_INTERVAL_MS; // 设备清理间隔
 
-    uint32_t lastStackInfoPrint = 0;
-    const uint32_t stackInfoPrintInterval = 5000; // 5秒输出一次堆栈信息
+    // 系统堆栈信息打印功能已禁用
+    // uint32_t lastStackInfoPrint = 0;
+    // const uint32_t stackInfoPrintInterval = 5000; // 5秒输出一次堆栈信息
 
     for (;;)
     {
@@ -1276,12 +1296,12 @@ void MasterServer::MainTask::task()
             lastDeviceCleanup = currentTime;
         }
 
-        // 每5秒输出一次系统堆栈信息
-        if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
-        {
-            parent.printSystemStackInfo();
-            lastStackInfoPrint = currentTime;
-        }
+        // 系统堆栈信息打印功能已禁用
+        // if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
+        // {
+        //     parent.printSystemStackInfo();
+        //     lastStackInfoPrint = currentTime;
+        // }
 
         TaskBase::delay(TASK_DELAY_MS);
     }
