@@ -41,9 +41,10 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
 
     auto &deviceManager = server->getDeviceManager();
 
-    // 只要后端向主机发送设备配置，设备列表就不需要变动
-    // 不清除现有配置，只更新或添加新的配置
+    // 每次收到后端设备配置时，先清空原有的设备列表，然后用新配置替换
     // 使用设备ID统一管理，不再分配短ID
+    deviceManager.clearAllDevices();
+    elog_i("SlaveConfigHandler", "Cleared existing device list before applying new configuration");
 
     // Store slave configurations in device manager
     for (const auto &slave : configMsg->slaves)
@@ -52,13 +53,9 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
         deviceManager.addSlave(slave.id, 0); // 不再使用短ID，传入0
         deviceManager.setSlaveConfig(slave.id, slave);
 
-        // 如果设备信息不存在，创建基本的设备信息（不分配短ID）
-        if (!deviceManager.hasDeviceInfo(slave.id))
-        {
-            // 创建设备信息，版本信息未知，使用默认值
-            deviceManager.addDeviceInfo(slave.id, 0, 0, 0);
-            elog_v("SlaveConfigHandler", "Created device info for 0x%08X (no short ID assigned)", slave.id);
-        }
+        // 创建设备信息，版本信息未知，使用默认值（清空后所有设备都是新的）
+        deviceManager.addDeviceInfo(slave.id, 0, 0, 0);
+        elog_v("SlaveConfigHandler", "Created device info for 0x%08X (no short ID assigned)", slave.id);
 
         elog_v("SlaveConfigHandler",
                "Stored config for slave 0x%08X: Conduction=%d, Resistance=%d, "
@@ -68,6 +65,8 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
     }
 
     elog_v("SlaveConfigHandler", "Configuration actions executed for %d slaves", static_cast<int>(configMsg->slaveNum));
+    elog_i("SlaveConfigHandler", "Received device configuration from backend: %d slave(s) configured",
+           static_cast<int>(configMsg->slaveNum));
 }
 
 // Mode Configuration Message Handler
