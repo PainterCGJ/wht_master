@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 #include "cmsis_os.h"
 #include "lwip/inet.h"
 #include "lwip/netdb.h"
@@ -12,8 +11,8 @@
 #include "udp_task.h"
 
 #define UDP_SERVER_PORT 8080
-#define TX_QUEUE_SIZE 2*10
-#define RX_QUEUE_SIZE 2*10
+#define TX_QUEUE_SIZE 2 * 10
+#define RX_QUEUE_SIZE 2 * 10
 
 // 消息类型定义
 typedef enum
@@ -46,7 +45,7 @@ void udp_comm_task(void *argument)
 {
     int sockfd;
     struct sockaddr_in server_addr, client_addr;
-    char buffer[UDP_BUFFER_SIZE];
+    char buffer[2 * UDP_BUFFER_SIZE];
     socklen_t client_addr_len = sizeof(client_addr);
     int recv_len;
     tx_msg_t tx_msg;
@@ -144,34 +143,114 @@ void udp_comm_task(void *argument)
         }
 
         // 非阻塞接收数据
-        recv_len =
-            recvfrom(sockfd, buffer, UDP_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr *)&client_addr, &client_addr_len);
+        recv_len = recvfrom(sockfd, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&client_addr,
+                            &client_addr_len);
         if (recv_len > 0)
         {
-            // 构造接收消息 - 使用简单赋值避免memcpy
-            rx_msg.src_addr = client_addr;
-            rx_msg.data_len = recv_len;
-            for (int i = 0; i < recv_len && i < UDP_BUFFER_SIZE; i++)
+            // 检查是否可能发生数据截断
+            if (recv_len >= sizeof(buffer))
             {
-                rx_msg.data[i] = buffer[i];
+                elog_w("udp_task",
+                       "UDP packet size (%d bytes) >= buffer size (%d bytes), data may be truncated! "
+                       "Consider increasing UDP_BUFFER_SIZE if packets exceed this size.",
+                       recv_len, UDP_BUFFER_SIZE);
             }
 
-            // 将数据放入接收队列
-            if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
+            // 记录接收到的字节数
+            elog_i("udp_task", "UDP received %d bytes from %s:%d", recv_len, inet_ntoa(client_addr.sin_addr),
+                   ntohs(client_addr.sin_port));
+
+            // 如果数据大于UDP_BUFFER_SIZE，需要分片处理
+            if (recv_len > UDP_BUFFER_SIZE)
             {
-                elog_w("udp_task", "UDP RX queue full, dropping packet from %s:%d (%d bytes)",
-                       inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_len);
+                // 计算需要分片的数量
+                int fragment_count = (recv_len + UDP_BUFFER_SIZE - 1) / UDP_BUFFER_SIZE;
+                elog_i("udp_task", "Large packet detected (%d bytes), splitting into %d fragments", recv_len, fragment_count);
+
+                int offset = 0;
+                int fragments_queued = 0;
+                int fragments_dropped = 0;
+
+                // 分片并逐个入队
+                for (int frag_idx = 0; frag_idx < fragment_count; frag_idx++)
+                {
+                    // 计算当前分片的大小
+                    int fragment_size = (offset + UDP_BUFFER_SIZE <= recv_len) ? UDP_BUFFER_SIZE : (recv_len - offset);
+
+                    // 构造接收消息
+                    rx_msg.src_addr = client_addr;
+                    rx_msg.data_len = fragment_size;
+
+                    // 复制数据到rx_msg
+                    for (int i = 0; i < fragment_size; i++)
+                    {
+                        rx_msg.data[i] = buffer[offset + i];
+                    }
+
+                    // 将分片放入接收队列
+                    if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
+                    {
+                        elog_w("udp_task", "UDP RX queue full, dropping fragment %d/%d from %s:%d (%d bytes)",
+                               frag_idx + 1, fragment_count, inet_ntoa(client_addr.sin_addr),
+                               ntohs(client_addr.sin_port), fragment_size);
+                        fragments_dropped++;
+                    }
+                    else
+                    {
+                        elog_v("udp_task", "UDP fragment %d/%d queued successfully (%d bytes)", frag_idx + 1,
+                               fragment_count, fragment_size);
+                        fragments_queued++;
+
+                        // 如果有回调函数，调用它
+                        if (rx_callback != NULL)
+                        {
+                            rx_callback(&rx_msg);
+                        }
+                    }
+
+                    offset += fragment_size;
+                }
+
+                // 记录分片处理结果
+                if (fragments_dropped > 0)
+                {
+                    elog_w("udp_task", "Packet fragmentation completed: %d fragments queued, %d fragments dropped",
+                           fragments_queued, fragments_dropped);
+                }
+                else
+                {
+                    elog_v("udp_task", "Packet fragmentation completed: all %d fragments queued successfully",
+                           fragments_queued);
+                }
             }
             else
             {
-                elog_v("udp_task", "UDP received %d bytes from %s:%d", recv_len, inet_ntoa(client_addr.sin_addr),
-                       ntohs(client_addr.sin_port));
-            }
+                // 数据小于等于UDP_BUFFER_SIZE，正常处理
+                rx_msg.src_addr = client_addr;
+                rx_msg.data_len = recv_len;
 
-            // 如果有回调函数，调用它
-            if (rx_callback != NULL)
-            {
-                rx_callback(&rx_msg);
+                // 复制数据到rx_msg
+                for (int i = 0; i < recv_len; i++)
+                {
+                    rx_msg.data[i] = buffer[i];
+                }
+
+                // 将数据放入接收队列
+                if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
+                {
+                    elog_w("udp_task", "UDP RX queue full, dropping packet from %s:%d (%d bytes)",
+                           inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_len);
+                }
+                else
+                {
+                    elog_v("udp_task", "UDP packet queued successfully");
+
+                    // 如果有回调函数，调用它
+                    if (rx_callback != NULL)
+                    {
+                        rx_callback(&rx_msg);
+                    }
+                }
             }
         }
 

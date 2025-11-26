@@ -9,6 +9,7 @@
 #include "elog.h"
 #include "hptimer.hpp"
 #include "udp_task.h"
+#include "utils/ByteUtils.h"
 #include "uwb_task.h"
 
 // MasterServer 构造函数实现
@@ -1135,7 +1136,7 @@ void MasterServer::SlaveDataProcT::task()
                             // 检查帧是否完整
                             if (frameEnd <= recvData.size())
                             {
-                                // 只有第一个分片（fragmentsSequence == 0）包含完整的messageId + slaveId + deviceStatus
+                                // 只有第一个分片（fragmentsSequence == 0）包含messageId + slaveId + deviceStatus
                                 // 后续分片的payload只是消息内容的一部分，不包含这些信息
                                 if (fragmentsSequence == 0)
                                 {
@@ -1143,33 +1144,80 @@ void MasterServer::SlaveDataProcT::task()
                                     std::vector<uint8_t> payload(recvData.begin() + frameStart + 7,
                                                                  recvData.begin() + frameEnd);
 
-                                    // 解析payload提取从机ID
-                                    uint32_t slaveId = 0;
-                                    WhtsProtocol::DeviceStatus deviceStatus;
-                                    std::unique_ptr<WhtsProtocol::Message> message;
-
-                                    if (parent.processor.parseSlave2BackendPacket(payload, slaveId, deviceStatus,
-                                                                                  message))
+                                    // 检查payload大小，至少需要7字节（messageId + slaveId + deviceStatus）
+                                    if (payload.size() < 7)
                                     {
-                                        // 通过检测数据更新设备在线状态
-                                        // 设备是否在线只通过是否有检测数据上传来判断，并且收到检测数据后更新最后一次通信时间
-                                        parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(slaveId);
-                                        elog_v(TAG,
-                                               "Updated online status for slave 0x%08X from SLAVE_TO_BACKEND detection "
-                                               "data",
-                                               slaveId);
+                                        elog_w(TAG,
+                                               "SLAVE_TO_BACKEND payload too small: %d bytes (expected at least 7), "
+                                               "frameLength=%d",
+                                               payload.size(), frameLength);
                                     }
                                     else
                                     {
-                                        elog_w(TAG,
-                                               "Failed to parse SLAVE_TO_BACKEND packet payload to extract slave ID");
+                                        // 如果还有后续分片（more_fragments=1），说明数据不完整，只能提取基本信息
+                                        // 只有当more_fragments=0时，才尝试完整解析
+                                        if (moreFragmentsFlag == 0)
+                                        {
+                                            // 完整帧，可以完整解析
+                                            uint8_t messageId = payload[0];
+                                            elog_v(TAG,
+                                                   "Attempting to parse complete SLAVE_TO_BACKEND packet: "
+                                                   "payload_size=%d, "
+                                                   "messageId=0x%02X",
+                                                   payload.size(), messageId);
+
+                                            // 解析payload提取从机ID
+                                            uint32_t slaveId = 0;
+                                            WhtsProtocol::DeviceStatus deviceStatus;
+                                            std::unique_ptr<WhtsProtocol::Message> message;
+
+                                            if (parent.processor.parseSlave2BackendPacket(payload, slaveId,
+                                                                                          deviceStatus, message))
+                                            {
+                                                // 通过检测数据更新设备在线状态
+                                                // 设备是否在线只通过是否有检测数据上传来判断，并且收到检测数据后更新最后一次通信时间
+                                                parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(
+                                                    slaveId);
+                                                elog_v(TAG,
+                                                       "Updated online status for slave 0x%08X from SLAVE_TO_BACKEND "
+                                                       "detection "
+                                                       "data",
+                                                       slaveId);
+                                            }
+                                            else
+                                            {
+                                                // 详细诊断解析失败的原因
+                                                uint8_t msgId = payload[0];
+                                                elog_w(
+                                                    TAG,
+                                                    "Failed to parse SLAVE_TO_BACKEND packet: payload_size=%d, "
+                                                    "messageId=0x%02X (may be unsupported message type or deserialize "
+                                                    "failed)",
+                                                    payload.size(), msgId);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // 分包情况：只提取基本信息（前7字节），不进行完整解析
+                                            // 因为数据不完整，完整解析会在所有分片重组后由ProtocolProcessor处理
+                                            uint32_t slaveId = WhtsProtocol::ByteUtils::readUint32LE(
+                                                payload, 1); // 跳过messageId，读取slaveId
+                                            elog_v(TAG,
+                                                   "Extracted slave ID 0x%08X from first fragment (more fragments "
+                                                   "pending, skipping full parse)",
+                                                   slaveId);
+                                            // 更新设备在线状态
+                                            parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(
+                                                slaveId);
+                                        }
                                     }
                                 }
                                 else
                                 {
                                     // 后续分片不包含slaveId信息，跳过解析
-                                    elog_v(TAG, "Skipping slave ID extraction for fragment %d (not the first fragment)",
-                                           fragmentsSequence);
+                                    // elog_d(TAG, "Skipping slave ID extraction for fragment %d (not the first
+                                    // fragment)",
+                                    //        fragmentsSequence);
                                 }
                             }
                         }
