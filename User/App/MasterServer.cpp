@@ -904,6 +904,7 @@ void MasterServer::processTimeSync()
 
         // 启动时间设置为当前时间加上启动延迟时间
         syncCmd->startTime = timestampUs + (startupDelayMs * 1000);
+        elog_i(TAG, "startTime: %lu us", syncCmd->startTime);
 
         // 构建从机配置列表
         buildSlaveConfigsForSync(*syncCmd, dm);
