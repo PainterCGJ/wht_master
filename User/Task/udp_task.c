@@ -160,97 +160,29 @@ void udp_comm_task(void *argument)
             elog_i("udp_task", "UDP received %d bytes from %s:%d", recv_len, inet_ntoa(client_addr.sin_addr),
                    ntohs(client_addr.sin_port));
 
-            // 如果数据大于UDP_BUFFER_SIZE，需要分片处理
-            if (recv_len > UDP_BUFFER_SIZE)
+            // 构造接收消息 - 限制实际复制的数据不超过缓冲区大小，防止溢出
+            rx_msg.src_addr = client_addr;
+            rx_msg.data_len = (recv_len > UDP_BUFFER_SIZE) ? UDP_BUFFER_SIZE : recv_len;
+            for (int i = 0; i < rx_msg.data_len && i < UDP_BUFFER_SIZE; i++)
             {
-                // 计算需要分片的数量
-                int fragment_count = (recv_len + UDP_BUFFER_SIZE - 1) / UDP_BUFFER_SIZE;
-                elog_i("udp_task", "Large packet detected (%d bytes), splitting into %d fragments", recv_len, fragment_count);
+                rx_msg.data[i] = buffer[i];
+            }
 
-                int offset = 0;
-                int fragments_queued = 0;
-                int fragments_dropped = 0;
-
-                // 分片并逐个入队
-                for (int frag_idx = 0; frag_idx < fragment_count; frag_idx++)
-                {
-                    // 计算当前分片的大小
-                    int fragment_size = (offset + UDP_BUFFER_SIZE <= recv_len) ? UDP_BUFFER_SIZE : (recv_len - offset);
-
-                    // 构造接收消息
-                    rx_msg.src_addr = client_addr;
-                    rx_msg.data_len = fragment_size;
-
-                    // 复制数据到rx_msg
-                    for (int i = 0; i < fragment_size; i++)
-                    {
-                        rx_msg.data[i] = buffer[offset + i];
-                    }
-
-                    // 将分片放入接收队列
-                    if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
-                    {
-                        elog_w("udp_task", "UDP RX queue full, dropping fragment %d/%d from %s:%d (%d bytes)",
-                               frag_idx + 1, fragment_count, inet_ntoa(client_addr.sin_addr),
-                               ntohs(client_addr.sin_port), fragment_size);
-                        fragments_dropped++;
-                    }
-                    else
-                    {
-                        elog_v("udp_task", "UDP fragment %d/%d queued successfully (%d bytes)", frag_idx + 1,
-                               fragment_count, fragment_size);
-                        fragments_queued++;
-
-                        // 如果有回调函数，调用它
-                        if (rx_callback != NULL)
-                        {
-                            rx_callback(&rx_msg);
-                        }
-                    }
-
-                    offset += fragment_size;
-                }
-
-                // 记录分片处理结果
-                if (fragments_dropped > 0)
-                {
-                    elog_w("udp_task", "Packet fragmentation completed: %d fragments queued, %d fragments dropped",
-                           fragments_queued, fragments_dropped);
-                }
-                else
-                {
-                    elog_v("udp_task", "Packet fragmentation completed: all %d fragments queued successfully",
-                           fragments_queued);
-                }
+            // 将数据放入接收队列
+            if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
+            {
+                elog_w("udp_task", "UDP RX queue full, dropping packet from %s:%d (%d bytes)",
+                       inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_len);
             }
             else
             {
-                // 数据小于等于UDP_BUFFER_SIZE，正常处理
-                rx_msg.src_addr = client_addr;
-                rx_msg.data_len = recv_len;
+                elog_v("udp_task", "UDP packet queued successfully");
+            }
 
-                // 复制数据到rx_msg
-                for (int i = 0; i < recv_len; i++)
-                {
-                    rx_msg.data[i] = buffer[i];
-                }
-
-                // 将数据放入接收队列
-                if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
-                {
-                    elog_w("udp_task", "UDP RX queue full, dropping packet from %s:%d (%d bytes)",
-                           inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_len);
-                }
-                else
-                {
-                    elog_v("udp_task", "UDP packet queued successfully");
-
-                    // 如果有回调函数，调用它
-                    if (rx_callback != NULL)
-                    {
-                        rx_callback(&rx_msg);
-                    }
-                }
+            // 如果有回调函数，调用它
+            if (rx_callback != NULL)
+            {
+                rx_callback(&rx_msg);
             }
         }
 
