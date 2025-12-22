@@ -160,29 +160,54 @@ void udp_comm_task(void *argument)
             elog_i("udp_task", "UDP received %d bytes from %s:%d", recv_len, inet_ntoa(client_addr.sin_addr),
                    ntohs(client_addr.sin_port));
 
-            // 构造接收消息 - 限制实际复制的数据不超过缓冲区大小，防止溢出
+            // 构造接收消息 - 如果数据超过缓冲区大小，分多次放入队列
             rx_msg.src_addr = client_addr;
-            rx_msg.data_len = (recv_len > UDP_BUFFER_SIZE) ? UDP_BUFFER_SIZE : recv_len;
-            for (int i = 0; i < rx_msg.data_len && i < UDP_BUFFER_SIZE; i++)
+            
+            // 计算需要分成多少个包
+            int total_bytes = recv_len;
+            int offset = 0;
+            int chunk_count = 0;
+            int failed_chunks = 0;
+            
+            while (offset < total_bytes)
             {
-                rx_msg.data[i] = buffer[i];
+                // 计算本次要复制的数据长度
+                int chunk_size = (total_bytes - offset > UDP_BUFFER_SIZE) ? UDP_BUFFER_SIZE : (total_bytes - offset);
+                rx_msg.data_len = chunk_size;
+                
+                // 复制数据到消息缓冲区
+                for (int i = 0; i < chunk_size; i++)
+                {
+                    rx_msg.data[i] = buffer[offset + i];
+                }
+                
+                // 将数据放入接收队列
+                if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
+                {
+                    elog_w("udp_task", "UDP RX queue full, dropping chunk %d from %s:%d (%d bytes)",
+                           chunk_count + 1, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), chunk_size);
+                    failed_chunks++;
+                }
+                else
+                {
+                    elog_v("udp_task", "UDP chunk %d queued successfully (%d bytes)", chunk_count + 1, chunk_size);
+                    
+                    // 如果有回调函数，调用它
+                    if (rx_callback != NULL)
+                    {
+                        rx_callback(&rx_msg);
+                    }
+                }
+                
+                offset += chunk_size;
+                chunk_count++;
             }
-
-            // 将数据放入接收队列
-            if (osMessageQueuePut(rxQueue, &rx_msg, 0, 0) != osOK)
+            
+            // 如果数据被分成多个包，记录日志
+            if (chunk_count > 1)
             {
-                elog_w("udp_task", "UDP RX queue full, dropping packet from %s:%d (%d bytes)",
-                       inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), recv_len);
-            }
-            else
-            {
-                elog_v("udp_task", "UDP packet queued successfully");
-            }
-
-            // 如果有回调函数，调用它
-            if (rx_callback != NULL)
-            {
-                rx_callback(&rx_msg);
+                elog_i("udp_task", "Large UDP packet split into %d chunks (%d bytes total, %d chunks failed)",
+                       chunk_count, total_bytes, failed_chunks);
             }
         }
 
