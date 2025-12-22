@@ -297,15 +297,61 @@ static void uwb_comm_task(void *argument)
         if (uwb->get_recv_data(buffer))
         {
             // uwb->set_recv_mode();
-            // elog_w(TAG, "rx size: %d", buffer.size());
-            rx_msg->data_len = buffer.size();
-            for (int i = 0; i < rx_msg->data_len; i++)
+            elog_i(TAG, "uwb rx size: %d", buffer.size());
+
+            // 获取当前时间戳和状态
+            uint32_t timestamp = osKernelGetTickCount();
+            uint32_t status_reg = 0;
+
+            // 计算需要分成多少个包
+            size_t total_bytes = buffer.size();
+            size_t offset = 0;
+            int chunk_count = 0;
+            int failed_chunks = 0;
+
+            while (offset < total_bytes)
             {
-                rx_msg->data[i] = buffer[i];
+                // 计算本次要复制的数据长度
+                size_t chunk_size = (total_bytes - offset > FRAME_LEN_MAX) ? FRAME_LEN_MAX : (total_bytes - offset);
+                rx_msg->data_len = chunk_size;
+
+                // 复制数据到消息缓冲区
+                for (size_t i = 0; i < chunk_size; i++)
+                {
+                    rx_msg->data[i] = buffer[offset + i];
+                }
+
+                // 设置消息的时间戳和状态寄存器
+                rx_msg->timestamp = timestamp;
+                rx_msg->status_reg = status_reg;
+
+                // 将数据放入接收队列
+                if (osMessageQueuePut(uwb_rxQueue, rx_msg.get(), 0, 0) != osOK)
+                {
+                    elog_w(TAG, "UWB RX queue full, dropping chunk %d (%d bytes)", chunk_count + 1, chunk_size);
+                    failed_chunks++;
+                }
+                else
+                {
+                    elog_v(TAG, "UWB chunk %d queued successfully (%d bytes)", chunk_count + 1, chunk_size);
+
+                    // 如果有回调函数，调用它
+                    if (uwb_rx_callback != NULL)
+                    {
+                        uwb_rx_callback(rx_msg.get());
+                    }
+                }
+
+                offset += chunk_size;
+                chunk_count++;
             }
-            rx_msg->timestamp = osKernelGetTickCount();
-            rx_msg->status_reg = 0;
-            osMessageQueuePut(uwb_rxQueue, rx_msg.get(), 0, 0);
+
+            // 如果数据被分成多个包，记录日志
+            if (chunk_count > 1)
+            {
+                elog_i(TAG, "Large UWB packet split into %d chunks (%d bytes total, %d chunks failed)", chunk_count,
+                       total_bytes, failed_chunks);
+            }
             // osDelay(UWB_TX_DELAY_MS);
         }
 
