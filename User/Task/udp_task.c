@@ -12,7 +12,7 @@
 
 #define UDP_SERVER_PORT 8080
 #define TX_QUEUE_SIZE 2 * 10
-#define RX_QUEUE_SIZE 2 * 10
+#define RX_QUEUE_SIZE 10 * 10
 
 // 消息类型定义
 typedef enum
@@ -240,7 +240,7 @@ void UDP_Task_Init(void)
     udpTaskHandle = osThreadNew(udp_comm_task, NULL, &udpTask_attributes);
 }
 
-// API函数：发送UDP数据
+// API函数：发送UDP数据·
 int UDP_SendData(const uint8_t *data, uint16_t len, const char *ip_addr, uint16_t port)
 {
     if (data == NULL || len == 0 || len > UDP_BUFFER_SIZE || ip_addr == NULL)

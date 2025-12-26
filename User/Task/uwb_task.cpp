@@ -392,7 +392,7 @@ void UWB_Task_Init(void)
     const osThreadAttr_t uwbTask_attributes = {
         .name = "uwbCommTask",
         .stack_size = 8 * 1024,
-        .priority = (osPriority_t)osPriorityNormal,
+        .priority = (osPriority_t)osPriorityRealtime7, // 最高优先级
     };
     uwbCommTaskHandle = osThreadNew(uwb_comm_task, NULL, &uwbTask_attributes);
 

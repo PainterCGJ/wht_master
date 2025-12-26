@@ -1320,9 +1320,9 @@ void MasterServer::MainTask::task()
     uint32_t lastDeviceCleanup = 0;
     uint32_t deviceCleanupInterval = DEVICE_CLEANUP_INTERVAL_MS; // 设备清理间隔
 
-    // 系统堆栈信息打印功能已禁用
-    // uint32_t lastStackInfoPrint = 0;
-    // const uint32_t stackInfoPrintInterval = 5000; // 5秒输出一次堆栈信息
+    // 系统堆栈信息打印功能
+    uint32_t lastStackInfoPrint = 0;
+    const uint32_t stackInfoPrintInterval = 5000; // 5秒输出一次堆栈信息
 
     for (;;)
     {
@@ -1345,12 +1345,12 @@ void MasterServer::MainTask::task()
             lastDeviceCleanup = currentTime;
         }
 
-        // 系统堆栈信息打印功能已禁用
-        // if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
-        // {
-        //     parent.printSystemStackInfo();
-        //     lastStackInfoPrint = currentTime;
-        // }
+        // 系统堆栈信息打印功能
+        if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
+        {
+            parent.printSystemStackInfo();
+            lastStackInfoPrint = currentTime;
+        }
 
         TaskBase::delay(TASK_DELAY_MS);
     }
