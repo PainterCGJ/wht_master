@@ -34,15 +34,23 @@ struct DeviceInfo
     bool shortIdAssigned;     // 是否已分配短ID
     uint8_t batteryLevel;     // 电池电量 0-100%
 
+    // 导通数据缓存相关
+    std::vector<uint8_t> conductionDataBuffer; // 导通数据缓存
+    uint16_t deviceStatus;                     // 设备状态 (最近接收到的)
+    size_t conductionDataSize;                 // 预分配的导通数据缓存大小
+    bool conductionDataReceived;               // 标记本轮是否已接收导通数据
+
     DeviceInfo()
         : deviceId(0), shortId(0), online(0), versionMajor(0), versionMinor(0), versionPatch(0), lastSeenTime(0),
-          joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false), batteryLevel(0)
+          joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false), batteryLevel(0), deviceStatus(0),
+          conductionDataSize(0), conductionDataReceived(false)
     {
     }
 
     DeviceInfo(uint32_t id, uint8_t major, uint8_t minor, uint16_t patch)
         : deviceId(id), shortId(0), online(1), versionMajor(major), versionMinor(minor), versionPatch(patch),
-          lastSeenTime(0), joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false), batteryLevel(0)
+          lastSeenTime(0), joinRequestTime(0), joinRequestCount(0), shortIdAssigned(false), batteryLevel(0),
+          deviceStatus(0), conductionDataSize(0), conductionDataReceived(false)
     {
     }
 };
@@ -169,4 +177,11 @@ class DeviceManager
     void clearSlaveResetFlag(uint32_t slaveId);
     bool isSlaveMarkedForReset(uint32_t slaveId) const;
     void clearAllResetFlags();
+
+    // 导通数据缓存管理
+    void allocateConductionBuffers(); // 根据从机配置预分配所有从机的导通数据缓存
+    void storeConductionDataFragment(uint32_t slaveId, uint16_t deviceStatus, const uint8_t *data, size_t dataLen,
+                                     uint8_t fragSeq, size_t mtu); // 存储导通数据分片
+    void resetConductionDataFlags();                               // 重置所有设备的导通数据接收标记
+    bool allConfiguredSlavesReceivedData() const; // 检查所有配置的从机是否都已接收导通数据
 };

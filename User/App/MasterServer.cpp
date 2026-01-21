@@ -62,6 +62,8 @@ void MasterServer::initializeSlave2MasterHandlers()
         &PingResponseHandler::getInstance();
     slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::HEARTBEAT_MSG)] =
         &HeartbeatHandler::getInstance();
+    slave2MasterHandlers_[static_cast<uint8_t>(Slave2MasterMessageId::COND_DATA_MSG)] =
+        &ConductionDataHandler::getInstance();
 }
 
 uint32_t MasterServer::getCurrentTimestamp()
@@ -891,6 +893,9 @@ void MasterServer::processTimeSync()
     // 检查是否需要发送TDMA同步消息
     if (currentTime - lastSyncTime >= tdmaCycleMs)
     {
+        // 在发送下一次同步帧之前，将缓存的导通数据发送给上位机
+        sendCachedConductionDataToBackend();
+
         // 创建统一的TDMA同步消息
         auto syncCmd = std::make_unique<Master2Slave::SyncMessage>();
 
@@ -1239,11 +1244,67 @@ void MasterServer::SlaveDataProcT::task()
                         break; // 找到SLAVE_TO_BACKEND帧后直接透传，不再处理其他帧
                     }
 
+                    // 检查是否为SLAVE_TO_MASTER帧中的COND_DATA_MSG
+                    // COND_DATA_MSG特殊处理：每个分片都包含完整的识别信息，无需组包
+                    if (packetId == static_cast<uint8_t>(PacketId::SLAVE_TO_MASTER))
+                    {
+                        // 提取帧长度
+                        if (frameStart + 7 <= recvData.size())
+                        {
+                            uint16_t frameLength = recvData[frameStart + 5] | (recvData[frameStart + 6] << 8);
+                            size_t frameEnd = frameStart + 7 + frameLength;
+
+                            // 检查帧是否完整
+                            if (frameEnd <= recvData.size() && frameLength >= 7)
+                            {
+                                // 提取payload
+                                std::vector<uint8_t> payload(recvData.begin() + frameStart + 7,
+                                                             recvData.begin() + frameEnd);
+
+                                // 检查是否为COND_DATA_MSG (0x53)
+                                if (payload[0] == static_cast<uint8_t>(Slave2MasterMessageId::COND_DATA_MSG))
+                                {
+                                    // COND_DATA_MSG每个分片都携带完整的识别信息：
+                                    // Payload格式: Message ID(1) + Slave ID(4) + Device Status(2) + 导通数据
+                                    // 因此可以直接处理任意分片，无需判断是否为第一个分片
+
+                                    // 提取分片序号
+                                    uint8_t fragmentsSequence = recvData[frameStart + 3];
+
+                                    // 从payload中提取Slave ID (4字节, 小端序)
+                                    uint32_t slaveId = WhtsProtocol::ByteUtils::readUint32LE(payload, 1);
+
+                                    // 从payload中提取Device Status (2字节, 小端序)
+                                    uint16_t deviceStatus = payload[5] | (payload[6] << 8);
+
+                                    // 导通数据从第8字节开始 (跳过 MessageID(1) + SlaveID(4) + DeviceStatus(2))
+                                    const uint8_t *conductionDataPtr = payload.data() + 7;
+                                    size_t conductionDataLen = payload.size() - 7;
+
+                                    // 直接存储导通数据片段到对应设备的缓存
+                                    // 根据分片序号计算偏移量，无需等待其他分片
+                                    parent.getDeviceManager().storeConductionDataFragment(
+                                        slaveId, deviceStatus, conductionDataPtr, conductionDataLen, fragmentsSequence,
+                                        FRAME_LEN_MAX);
+
+                                    // 更新设备在线状态
+                                    parent.getDeviceManager().updateDeviceOnlineStatusFromDetectionData(slaveId);
+
+                                    elog_v(TAG,
+                                           "Processed COND_DATA_MSG from slave 0x%08X: fragSeq=%d, dataLen=%d, "
+                                           "status=0x%04X",
+                                           slaveId, fragmentsSequence, conductionDataLen, deviceStatus);
+                                }
+                            }
+                        }
+                    }
+
                     // 移动到下一个位置继续查找
                     pos = frameStart + 1;
                 }
 
                 // 如果不是SLAVE_TO_BACKEND帧，则按原来的逻辑处理
+                // 但是对于COND_DATA_MSG，我们已经在上面特殊处理了，不需要再通过通用流程
                 if (!hasSlaveToBackendFrame)
                 {
                     // process recvData
@@ -1253,6 +1314,14 @@ void MasterServer::SlaveDataProcT::task()
                     Frame receivedFrame;
                     while (parent.processor.getNextCompleteFrame(receivedFrame))
                     {
+                        // 跳过COND_DATA_MSG，因为已经特殊处理了
+                        if (receivedFrame.packetId == static_cast<uint8_t>(PacketId::SLAVE_TO_MASTER) &&
+                            receivedFrame.payload.size() > 0 &&
+                            receivedFrame.payload[0] == static_cast<uint8_t>(Slave2MasterMessageId::COND_DATA_MSG))
+                        {
+                            elog_v(TAG, "Skipping COND_DATA_MSG in standard frame processing (already handled)");
+                            continue;
+                        }
                         parent.processFrame(receivedFrame);
                     }
                 }
@@ -1354,6 +1423,69 @@ void MasterServer::MainTask::task()
 
         TaskBase::delay(TASK_DELAY_MS);
     }
+}
+
+// 将缓存的导通数据打包并发送给上位机
+void MasterServer::sendCachedConductionDataToBackend()
+{
+    DeviceManager &dm = getDeviceManager();
+
+    // 获取所有配置的从机列表（按配置顺序）
+    auto allSlaves = dm.getAllSlavesInConfigOrder();
+
+    int sentCount = 0;
+    for (uint32_t slaveId : allSlaves)
+    {
+        if (!dm.hasDeviceInfo(slaveId))
+        {
+            continue;
+        }
+
+        DeviceInfo deviceInfo = dm.getDeviceInfo(slaveId);
+
+        // 检查是否接收到导通数据
+        if (!deviceInfo.conductionDataReceived)
+        {
+            elog_v(TAG, "Slave 0x%08X: no conduction data received, skipping", slaveId);
+            continue;
+        }
+
+        // 创建Slave2Backend::ConductionDataMessage
+        auto condMsg = std::make_unique<Slave2Backend::ConductionDataMessage>();
+        condMsg->conductionLength = static_cast<uint16_t>(deviceInfo.conductionDataBuffer.size());
+        condMsg->conductionData = deviceInfo.conductionDataBuffer;
+
+        // 创建DeviceStatus
+        WhtsProtocol::DeviceStatus deviceStatus;
+        deviceStatus.fromUint16(deviceInfo.deviceStatus);
+
+        // 打包消息
+        auto frames = processor.packSlave2BackendMessage(slaveId, deviceStatus, *condMsg);
+
+        // 发送所有分片
+        for (auto &frame : frames)
+        {
+            if (sendToBackend(frame))
+            {
+                elog_v(TAG, "Sent conduction data frame for slave 0x%08X (%d bytes)", slaveId,
+                       static_cast<int>(frame.size()));
+            }
+            else
+            {
+                elog_e(TAG, "Failed to send conduction data frame for slave 0x%08X", slaveId);
+            }
+        }
+
+        sentCount++;
+    }
+
+    if (sentCount > 0)
+    {
+        elog_i(TAG, "Sent cached conduction data to backend for %d slave(s)", sentCount);
+    }
+
+    // 重置所有设备的导通数据接收标记
+    dm.resetConductionDataFlags();
 }
 
 // 打印系统堆栈信息

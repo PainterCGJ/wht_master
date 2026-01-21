@@ -178,3 +178,29 @@ void HeartbeatHandler::executeActions(uint32_t slaveId, const Message &message, 
     // 更新设备电池电量
     server->getDeviceManager().updateSlaveHeartbeat(slaveId, heartbeatMsg->batteryLevel);
 }
+
+// Conduction Data Message Handler
+// 注意：COND_DATA_MSG的实际处理在SlaveDataProcT中完成，因为需要分片信息进行特殊处理
+// 这个handler只是为了保持架构一致性，实际上不会被调用（COND_DATA_MSG在SlaveDataProcT中被跳过）
+std::unique_ptr<Message> ConductionDataHandler::processMessage(uint32_t slaveId, const Message &message,
+                                                               MasterServer *server)
+{
+    // Conduction data messages don't generate responses
+    return nullptr;
+}
+
+void ConductionDataHandler::executeActions(uint32_t slaveId, const Message &message, MasterServer *server)
+{
+    const auto *condDataMsg = dynamic_cast<const Slave2Master::ConductionDataMessage *>(&message);
+    if (!condDataMsg)
+        return;
+
+    elog_v("ConductionDataHandler", "Received conduction data from slave 0x%08X (status=0x%04X, dataLen=%d)", slaveId,
+           condDataMsg->deviceStatus, static_cast<int>(condDataMsg->conductionData.size()));
+
+    // COND_DATA_MSG的实际处理在SlaveDataProcT::task()中完成，因为：
+    // 1. 每个分片都包含完整的识别信息（Message ID + Slave ID + Device Status）
+    // 2. 需要根据分片序号直接计算偏移量存储，无需等待组包
+    // 3. 支持乱序接收和丢包场景
+    elog_v("ConductionDataHandler", "Note: Actual conduction data processing is done in SlaveDataProcT");
+}

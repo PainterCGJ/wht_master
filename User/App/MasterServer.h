@@ -153,6 +153,9 @@ class MasterServer
     // System stack info printing
     void printSystemStackInfo() const;
 
+    // Send cached conduction data to backend
+    void sendCachedConductionDataToBackend();
+
   private:
     // O(1) lookup, no heap allocation for Backend2Master
     IMessageHandler *messageHandlers_[256] = {};

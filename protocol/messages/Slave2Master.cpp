@@ -80,6 +80,29 @@ bool HeartbeatMessage::deserialize(const std::vector<uint8_t> &data) {
     return true;
 }
 
+// ConductionDataMessage 实现
+std::vector<uint8_t> ConductionDataMessage::serialize() const {
+    std::vector<uint8_t> result;
+    // Device Status (2字节, 小端序)
+    result.push_back(deviceStatus & 0xFF);
+    result.push_back((deviceStatus >> 8) & 0xFF);
+    // Conduction Data
+    result.insert(result.end(), conductionData.begin(), conductionData.end());
+    return result;
+}
+
+bool ConductionDataMessage::deserialize(const std::vector<uint8_t> &data) {
+    if (data.size() < 2) return false;
+    // Device Status (2字节, 小端序)
+    deviceStatus = data[0] | (data[1] << 8);
+    // Conduction Data
+    conductionData.clear();
+    if (data.size() > 2) {
+        conductionData.insert(conductionData.end(), data.begin() + 2, data.end());
+    }
+    return true;
+}
+
 
 }    // namespace Slave2Master
 }    // namespace WhtsProtocol

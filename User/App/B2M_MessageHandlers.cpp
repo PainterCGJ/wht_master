@@ -64,6 +64,9 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
                static_cast<int>(slave.clipMode));
     }
 
+    // 预分配导通数据缓存
+    deviceManager.allocateConductionBuffers();
+
     elog_v("SlaveConfigHandler", "Configuration actions executed for %d slaves", static_cast<int>(configMsg->slaveNum));
     elog_i("SlaveConfigHandler", "Received device configuration from backend: %d slave(s) configured",
            static_cast<int>(configMsg->slaveNum));

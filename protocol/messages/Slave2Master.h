@@ -76,6 +76,19 @@ class HeartbeatMessage : public Message {
     const char* getMessageTypeName() const override { return "Heartbeat"; }
 };
 
+class ConductionDataMessage : public Message {
+   public:
+    uint16_t deviceStatus;               // 设备状态 (2字节)
+    std::vector<uint8_t> conductionData; // 导通数据
+
+    std::vector<uint8_t> serialize() const override;
+    bool deserialize(const std::vector<uint8_t>& data) override;
+    uint8_t getMessageId() const override {
+        return static_cast<uint8_t>(Slave2MasterMessageId::COND_DATA_MSG);
+    }
+    const char* getMessageTypeName() const override { return "Conduction Data"; }
+};
+
 
 }    // namespace Slave2Master
 }    // namespace WhtsProtocol

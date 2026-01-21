@@ -1,6 +1,7 @@
 #include "DeviceManager.h"
 
 #include <algorithm>
+#include <cstring>
 
 #include "elog.h"
 
@@ -513,4 +514,128 @@ void DeviceManager::clearAllDevices()
     clearAllResetFlags();
 
     elog_i("DeviceManager", "Cleared all device information (%d devices removed)", static_cast<int>(deviceCount));
+}
+
+// 导通数据缓存管理方法实现
+void DeviceManager::allocateConductionBuffers()
+{
+    // 计算总引脚数之和
+    size_t totalPinCount = 0;
+    for (const auto &pair : slaveConfigs)
+    {
+        totalPinCount += pair.second.conductionNum;
+    }
+
+    if (totalPinCount == 0)
+    {
+        elog_w("DeviceManager", "Total pin count is 0, no buffers allocated");
+        return;
+    }
+
+    elog_i("DeviceManager", "Allocating conduction buffers - total pin count: %d, slave count: %d",
+           static_cast<int>(totalPinCount), static_cast<int>(slaveConfigs.size()));
+
+    // 为每个从机分配缓存
+    for (const auto &pair : slaveConfigs)
+    {
+        uint32_t slaveId = pair.first;
+        uint8_t conductionNum = pair.second.conductionNum;
+
+        // 缓存大小 = 从机引脚数 * 总引脚数 / 8，向上取整
+        size_t bufferSize = (conductionNum * totalPinCount + 7) / 8;
+
+        auto it = deviceInfos.find(slaveId);
+        if (it != deviceInfos.end())
+        {
+            it->second.conductionDataSize = bufferSize;
+            it->second.conductionDataBuffer.resize(bufferSize, 0);
+            it->second.conductionDataReceived = false;
+            it->second.deviceStatus = 0;
+
+            elog_i("DeviceManager", "Allocated %d bytes buffer for slave 0x%08X (pins: %d)",
+                   static_cast<int>(bufferSize), slaveId, conductionNum);
+        }
+        else
+        {
+            elog_w("DeviceManager", "Slave 0x%08X not found in device list, skipping buffer allocation", slaveId);
+        }
+    }
+}
+
+void DeviceManager::storeConductionDataFragment(uint32_t slaveId, uint16_t deviceStatus, const uint8_t *data,
+                                                size_t dataLen, uint8_t fragSeq, size_t mtu)
+{
+    auto it = deviceInfos.find(slaveId);
+    if (it == deviceInfos.end())
+    {
+        elog_w("DeviceManager", "Cannot store conduction data: slave 0x%08X not found", slaveId);
+        return;
+    }
+
+    DeviceInfo &info = it->second;
+
+    // 更新设备状态（每个分片都携带最新的设备状态）
+    info.deviceStatus = deviceStatus;
+
+    // 计算偏移量
+    // COND_DATA_MSG特殊处理：每个分片都包含完整的识别信息（Message ID + Slave ID + Device Status）
+    // 这样即使丢失某些分片，也能独立识别和处理其他分片
+    //
+    // 帧格式：帧头(7字节) + Message ID(1) + Slave ID(4) + Device Status(2) + 导通数据
+    // MTU 是完整帧的大小（帧头 + 载荷）
+    //
+    // 每个分片的导通数据长度 = MTU - 帧头(7) - 消息头部(7) = MTU - 14
+    // 导通数据在缓存中的偏移量 = fragSeq × (MTU - 14)
+    //
+    // 无需判断fragSeq是否为0，所有分片使用统一的计算公式
+
+    size_t maxDataPerFragment = (mtu > 14) ? (mtu - 14) : 0; // MTU - 帧头(7) - 消息头部(7)
+    size_t offset = fragSeq * maxDataPerFragment;
+
+    // 检查缓存边界
+    if (offset + dataLen > info.conductionDataBuffer.size())
+    {
+        elog_e("DeviceManager", "Buffer overflow for slave 0x%08X: offset=%d, dataLen=%d, bufferSize=%d", slaveId,
+               static_cast<int>(offset), static_cast<int>(dataLen), static_cast<int>(info.conductionDataBuffer.size()));
+        return;
+    }
+
+    // 存储数据到缓存
+    memcpy(info.conductionDataBuffer.data() + offset, data, dataLen);
+
+    // 标记已接收数据
+    info.conductionDataReceived = true;
+
+    elog_v("DeviceManager",
+           "Stored conduction data fragment for slave 0x%08X: fragSeq=%d, offset=%d, len=%d, status=0x%04X", slaveId,
+           fragSeq, static_cast<int>(offset), static_cast<int>(dataLen), deviceStatus);
+}
+
+void DeviceManager::resetConductionDataFlags()
+{
+    for (auto &pair : deviceInfos)
+    {
+        pair.second.conductionDataReceived = false;
+        // 清空缓存（可选）
+        std::fill(pair.second.conductionDataBuffer.begin(), pair.second.conductionDataBuffer.end(), 0);
+    }
+    elog_v("DeviceManager", "Reset conduction data flags for all devices");
+}
+
+bool DeviceManager::allConfiguredSlavesReceivedData() const
+{
+    // 检查所有配置的从机是否都已接收导通数据
+    for (const auto &pair : slaveConfigs)
+    {
+        uint32_t slaveId = pair.first;
+        auto it = deviceInfos.find(slaveId);
+        if (it != deviceInfos.end())
+        {
+            if (!it->second.conductionDataReceived)
+            {
+                return false;
+            }
+        }
+    }
+    return !slaveConfigs.empty(); // 如果没有配置的从机，返回false
 }

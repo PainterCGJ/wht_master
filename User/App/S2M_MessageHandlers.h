@@ -106,3 +106,21 @@ class HeartbeatHandler : public ISlave2MasterMessageHandler
     HeartbeatHandler(const HeartbeatHandler &) = delete;
     HeartbeatHandler &operator=(const HeartbeatHandler &) = delete;
 };
+
+// Conduction Data Message Handler
+class ConductionDataHandler : public ISlave2MasterMessageHandler
+{
+  public:
+    static ConductionDataHandler &getInstance()
+    {
+        static ConductionDataHandler instance;
+        return instance;
+    }
+    std::unique_ptr<Message> processMessage(uint32_t slaveId, const Message &message, MasterServer *server) override;
+    void executeActions(uint32_t slaveId, const Message &message, MasterServer *server) override;
+
+  private:
+    ConductionDataHandler() = default;
+    ConductionDataHandler(const ConductionDataHandler &) = delete;
+    ConductionDataHandler &operator=(const ConductionDataHandler &) = delete;
+};
