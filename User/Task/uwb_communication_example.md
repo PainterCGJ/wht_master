@@ -161,7 +161,7 @@ void process_udp_command(const char *command, const uint8_t *data, uint16_t len)
 
 ## Configuration
 
-- **FRAME_LEN_MAX**: 127 bytes (maximum UWB frame length)
+- **FRAME_LEN_MAX**: 800 bytes (maximum UWB frame length)
 - **TX_QUEUE_SIZE**: 10 messages (sending queue)
 - **RX_QUEUE_SIZE**: 10 messages (receiving queue)
 - **UDP Forward**: Automatic forwarding to 192.168.0.103:9000

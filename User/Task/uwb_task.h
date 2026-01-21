@@ -8,7 +8,7 @@ extern "C"
 {
 #endif
 
-#define FRAME_LEN_MAX 1016
+#define FRAME_LEN_MAX 800
 
     // UWB接收消息结构体
     typedef struct
