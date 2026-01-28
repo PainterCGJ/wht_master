@@ -1414,10 +1414,14 @@ void MasterServer::MainTask::task()
             lastDeviceCleanup = currentTime;
         }
 
-        // 系统堆栈信息打印功能
+        // 系统堆栈信息打印功能（只在系统空闲时打印）
         if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
         {
-            // parent.printSystemStackInfo();
+            // 只有在系统停止状态（空闲）时才打印系统信息
+            if (parent.getDeviceManager().getSystemRunningStatus() == SYSTEM_STATUS_STOP)
+            {
+                parent.printSystemStackInfo();
+            }
             lastStackInfoPrint = currentTime;
         }
 
