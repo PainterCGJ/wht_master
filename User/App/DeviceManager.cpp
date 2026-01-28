@@ -491,7 +491,18 @@ void DeviceManager::clearAllDevices()
 {
     // 清除所有设备信息
     size_t deviceCount = deviceInfos.size();
-    deviceInfos.clear();
+
+    // 计算即将释放的buffer总大小
+    size_t totalBufferSize = 0;
+    for (const auto &pair : deviceInfos)
+    {
+        totalBufferSize += pair.second.conductionDataBuffer.size();
+    }
+
+    elog_i("DeviceManager", "Clearing all devices: %d device(s), releasing %d bytes of buffer memory",
+           static_cast<int>(deviceCount), static_cast<int>(totalBufferSize));
+
+    deviceInfos.clear(); // 自动释放所有 vector<uint8_t> buffer
 
     // 清除连接的从机列表
     connectedSlaves.clear();
@@ -513,7 +524,7 @@ void DeviceManager::clearAllDevices()
     // 清除复位标志
     clearAllResetFlags();
 
-    elog_i("DeviceManager", "Cleared all device information (%d devices removed)", static_cast<int>(deviceCount));
+    elog_i("DeviceManager", "All device information cleared successfully");
 }
 
 // 导通数据缓存管理方法实现
@@ -532,8 +543,9 @@ void DeviceManager::allocateConductionBuffers()
         return;
     }
 
-    elog_i("DeviceManager", "Allocating conduction buffers - total pin count: %d, slave count: %d",
-           static_cast<int>(totalPinCount), static_cast<int>(slaveConfigs.size()));
+    elog_i("DeviceManager", "========== Buffer Allocation Details ==========");
+    elog_i("DeviceManager", "Total slaves: %d, Total pins (sum): %d", static_cast<int>(slaveConfigs.size()),
+           static_cast<int>(totalPinCount));
 
     // 为每个从机分配缓存
     for (const auto &pair : slaveConfigs)
@@ -552,14 +564,17 @@ void DeviceManager::allocateConductionBuffers()
             it->second.conductionDataReceived = false;
             it->second.deviceStatus = 0;
 
-            elog_i("DeviceManager", "Allocated %d bytes buffer for slave 0x%08X (pins: %d)",
-                   static_cast<int>(bufferSize), slaveId, conductionNum);
+            elog_i("DeviceManager", "  Slave 0x%08X: pins=%d, buffer=%d bytes (formula: %d × %d ÷ 8 = %d)", slaveId,
+                   conductionNum, static_cast<int>(bufferSize), conductionNum, static_cast<int>(totalPinCount),
+                   static_cast<int>(bufferSize));
         }
         else
         {
-            elog_w("DeviceManager", "Slave 0x%08X not found in device list, skipping buffer allocation", slaveId);
+            elog_w("DeviceManager", "  Slave 0x%08X not found in device list, skipping buffer allocation", slaveId);
         }
     }
+
+    elog_i("DeviceManager", "========== Buffer Allocation Complete ==========");
 }
 
 void DeviceManager::storeConductionDataFragment(uint32_t slaveId, uint16_t deviceStatus, const uint8_t *data,
@@ -595,8 +610,11 @@ void DeviceManager::storeConductionDataFragment(uint32_t slaveId, uint16_t devic
     // 检查缓存边界
     if (offset + dataLen > info.conductionDataBuffer.size())
     {
-        elog_e("DeviceManager", "Buffer overflow for slave 0x%08X: offset=%d, dataLen=%d, bufferSize=%d", slaveId,
-               static_cast<int>(offset), static_cast<int>(dataLen), static_cast<int>(info.conductionDataBuffer.size()));
+        size_t overflowBytes = (offset + dataLen) - info.conductionDataBuffer.size();
+        elog_e("DeviceManager",
+               "Slave 0x%08X overflow: fragSeq=%d, offset=%d, Len=%d, bufferSize=%d, overflow=%d bytes", slaveId,
+               fragSeq, static_cast<int>(offset), static_cast<int>(dataLen),
+               static_cast<int>(info.conductionDataBuffer.size()), static_cast<int>(overflowBytes));
         return;
     }
 
@@ -606,9 +624,8 @@ void DeviceManager::storeConductionDataFragment(uint32_t slaveId, uint16_t devic
     // 标记已接收数据
     info.conductionDataReceived = true;
 
-    elog_v("DeviceManager",
-           "Stored conduction data fragment for slave 0x%08X: fragSeq=%d, offset=%d, len=%d, status=0x%04X", slaveId,
-           fragSeq, static_cast<int>(offset), static_cast<int>(dataLen), deviceStatus);
+    elog_i("DeviceManager", "Stored data for 0x%08X: fragSeq=%d, offset=%d, len=%d", slaveId, fragSeq,
+           static_cast<int>(offset), static_cast<int>(dataLen));
 }
 
 void DeviceManager::resetConductionDataFlags()

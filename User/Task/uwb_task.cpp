@@ -297,7 +297,7 @@ static void uwb_comm_task(void *argument)
         if (uwb->get_recv_data(buffer))
         {
             // uwb->set_recv_mode();
-            elog_i(TAG, "uwb rx size: %d", buffer.size());
+            // elog_i(TAG, "uwb rx size: %d", buffer.size());
 
             // 获取当前时间戳和状态
             uint32_t timestamp = osKernelGetTickCount();

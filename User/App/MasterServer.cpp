@@ -1417,7 +1417,7 @@ void MasterServer::MainTask::task()
         // 系统堆栈信息打印功能
         if (currentTime - lastStackInfoPrint >= stackInfoPrintInterval)
         {
-            parent.printSystemStackInfo();
+            // parent.printSystemStackInfo();
             lastStackInfoPrint = currentTime;
         }
 

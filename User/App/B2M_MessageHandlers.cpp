@@ -47,6 +47,8 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
     elog_i("SlaveConfigHandler", "Cleared existing device list before applying new configuration");
 
     // Store slave configurations in device manager
+    elog_i("SlaveConfigHandler", "========== Slave Configuration Details ==========");
+
     for (const auto &slave : configMsg->slaves)
     {
         // 添加从机到连接列表（使用设备ID管理）
@@ -55,16 +57,14 @@ void SlaveConfigHandler::executeActions(const Message &message, MasterServer *se
 
         // 创建设备信息，版本信息未知，使用默认值（清空后所有设备都是新的）
         deviceManager.addDeviceInfo(slave.id, 0, 0, 0);
-        elog_v("SlaveConfigHandler", "Created device info for 0x%08X (no short ID assigned)", slave.id);
 
-        elog_v("SlaveConfigHandler",
-               "Stored config for slave 0x%08X: Conduction=%d, Resistance=%d, "
-               "ClipMode=%d",
-               slave.id, static_cast<int>(slave.conductionNum), static_cast<int>(slave.resistanceNum),
+        // 打印从机配置信息
+        elog_i("SlaveConfigHandler", "Slave 0x%08X: conductionNum=%d, resistanceNum=%d, clipMode=%d", slave.id,
+               static_cast<int>(slave.conductionNum), static_cast<int>(slave.resistanceNum),
                static_cast<int>(slave.clipMode));
     }
 
-    // 预分配导通数据缓存
+    // 预分配导通数据缓存（此处会打印详细的缓存分配信息）
     deviceManager.allocateConductionBuffers();
 
     elog_v("SlaveConfigHandler", "Configuration actions executed for %d slaves", static_cast<int>(configMsg->slaveNum));
