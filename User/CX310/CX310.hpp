@@ -101,7 +101,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set channel %d", channel);
+            elog_i(TAG, "set channel %d", channel);
             return true;
         }
         elog_e(TAG, "set channel fail");
@@ -146,7 +146,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set prf mode %d", prf_mode);
+            elog_i(TAG, "set prf mode %d", prf_mode);
             return true;
         }
         elog_e(TAG, "set prf mode fail");
@@ -192,7 +192,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set preamble length %d", preamble_length);
+            elog_i(TAG, "set preamble length %d", preamble_length);
             return true;
         }
         elog_e(TAG, "set preamble length fail");
@@ -238,7 +238,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set preamble index %d", preamble_index);
+            elog_i(TAG, "set preamble index %d", preamble_index);
             return true;
         }
         elog_e(TAG, "set preamble index fail");
@@ -284,7 +284,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set psdu data rate %d", psdu_data_rate);
+            elog_i(TAG, "set psdu data rate %d", psdu_data_rate);
             return true;
         }
         elog_e(TAG, "set psdu data rate fail");
@@ -329,7 +329,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set phr mode %d", phr_mode);
+            elog_i(TAG, "set phr mode %d", phr_mode);
             return true;
         }
         elog_e(TAG, "set phr mode fail");
@@ -372,7 +372,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set sfd id %d", sfd_id);
+            elog_i(TAG, "set sfd id %d", sfd_id);
             return true;
         }
         elog_e(TAG, "set sfd id fail");
@@ -417,7 +417,7 @@ class CX310 {
             return uci_cmd.check_core_set_config_rsp(rsp);
         };
         if (__send_packet()) {
-            elog_v(TAG, "set tx power %d", tx_power);
+            elog_i(TAG, "set tx power %d", tx_power);
             return true;
         }
         elog_e(TAG, "set tx power fail");
